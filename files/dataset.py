@@ -32,7 +32,7 @@ class FranceSegmentationDataset(Dataset):
         mask_np[mask_np > 0] = 1.0
 
         # Apply transformations
-        image_tensor = self.transform(image)
+        image_tensor = self.image_transform(image)
         mask_tensor = self.mask_transform(mask)
 
         return image_tensor, mask_tensor
