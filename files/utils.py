@@ -2,6 +2,7 @@ import torch
 import torchvision
 from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
+import os
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -89,7 +90,7 @@ def check_accuracy(loader, model, device="cuda"):
 def save_predictions_as_imgs(
     loader, model, folder="saved_images/", device="cuda"
 ):
-    # create a folder if not exists
+    # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
 
