@@ -14,6 +14,19 @@ from utils import (
     save_predictions_as_imgs,
 )
 
+
+from torchvision.transforms import Lambda
+
+class MakeWriteable(Lambda):
+    def __init__(self):
+        super(MakeWriteable, self).__init__(self.make_writeable)
+
+    def make_writeable(self, img):
+        img_np = np.array(img)
+        img_np_writeable = np.copy(img_np)
+        return Image.fromarray(img_np_writeable)
+
+
 def main():
     # hyperparameters
     RANDOM_SEED = 42
@@ -65,6 +78,7 @@ def main():
 
     # Define the train transforms for masks
     train_mask_transforms = transforms.Compose([
+        MakeWriteable(),
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.RandomRotation(35),
         transforms.RandomHorizontalFlip(p=0.5),
@@ -74,6 +88,7 @@ def main():
 
     # Define the val transforms for masks
     val_mask_transforms = transforms.Compose([
+        MakeWriteable(),
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.ToTensor(),
     ])

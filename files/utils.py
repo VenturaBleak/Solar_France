@@ -2,7 +2,6 @@ import torch
 import torchvision
 from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
-import os
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -87,28 +86,22 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Dice score: {dice_score/len(loader)}")
     model.train()
 
-
-def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
-    model.eval()
-
-    # Create folder if it doesn't exist
+def save_predictions_as_imgs(
+    loader, model, folder="saved_images/", device="cuda"
+):
+    # create a folder if not exists
     if not os.path.exists(folder):
         os.makedirs(folder)
 
+    # set model to eval mode
+    model.eval()
     for idx, (x, y) in enumerate(loader):
         x = x.to(device=device)
         with torch.no_grad():
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
-
-        # Save predicted mask
         torchvision.utils.save_image(
-            preds, os.path.join(folder, f"pred_{idx}.png")
+            preds, f"{folder}/pred_{idx}.png"
         )
-
-        # Save ground truth mask
-        torchvision.utils.save_image(
-            y.unsqueeze(1), os.path.join(folder, f"gt_{idx}.png")
-        )
-
+        torchvision.utils.save_image(y, f"{folder}{idx}.png")
     model.train()
