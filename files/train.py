@@ -39,7 +39,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, device):
             # forward pass
             predictions = model(data)
             # calculate loss
-            loss = loss_fn(predictions, targets)
+            loss = loss_fn(predictions, targets.squeeze(1))
 
         # zero out gradients
         optimizer.zero_grad()

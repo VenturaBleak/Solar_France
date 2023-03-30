@@ -6,7 +6,7 @@ def get_image_size(image_path):
         width, height = img.size
     return width, height
 
-def process_all_images(image_dir, mask_dir, image_list, mask_list):
+def check_dimensions(image_dir, mask_dir, image_list, mask_list):
     prev_image_width, prev_image_height = None, None
     prev_mask_width, prev_mask_height = None, None
 
@@ -33,13 +33,20 @@ def process_all_images(image_dir, mask_dir, image_list, mask_list):
     print("All image and mask sizes match.")
 
 def main():
-    image_dir = os.path.join(os.getcwd(), 'data', 'trial', 'masks')
-    mask_dir = os.path.join(os.getcwd(), 'data',  'trial', 'masks')
+    # Get the current working directory
+    cwd = os.getcwd()
+
+    # Define the parent directory of the current working directory
+    parent_dir = os.path.dirname(cwd)
+
+    # Define the image and mask directories under the parent directory
+    image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
+    mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
 
     images = sorted(os.listdir(image_dir))
     masks = sorted(os.listdir(mask_dir))
 
-    process_all_images(image_dir, mask_dir, images, masks)
+    check_dimensions(image_dir, mask_dir, images, masks)
 
 if __name__ == "__main__":
     main()
