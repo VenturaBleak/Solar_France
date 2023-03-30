@@ -6,6 +6,8 @@ from torchvision import transforms
 from model import UNET
 from dataset import FranceSegmentationDataset,create_train_val_splits
 from train import train_fn
+from data_cleaning import remove_unmatched_files
+from image_size_check import check_dimensions
 from utils import (
     save_checkpoint,
     load_checkpoint,
@@ -20,9 +22,9 @@ def main():
     LEARNING_RATE = 1e-4
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 5
+    NUM_EPOCHS = 10
     if DEVICE == "cuda":
-        NUM_WORKERS = 2
+        NUM_WORKERS = 4
     else:
         NUM_WORKERS = 0
     IMAGE_HEIGHT = 416  # 400 originally
@@ -36,9 +38,25 @@ def main():
     # Define the parent directory of the current working directory
     parent_dir = os.path.dirname(cwd)
 
-    # Define the image and mask directories under the parent directory
-    image_dir = os.path.join(parent_dir, 'data',  'trial', 'images')
-    mask_dir = os.path.join(parent_dir, 'data',  'trial', 'masks')
+    if DEVICE == "cuda":
+        image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'images')
+        mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'masks')
+
+    else:
+        image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
+        mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
+
+    # remove unmatched images and masks
+    remove_unmatched_files(image_dir, mask_dir)
+
+    # assert that the number of images and masks are equal
+    assert len(os.listdir(image_dir)) == len(os.listdir(mask_dir))
+
+    # assert that dimensions of each image are equal
+    images = sorted(os.listdir(image_dir))
+    masks = sorted(os.listdir(mask_dir))
+    check_dimensions(image_dir, mask_dir, images, masks)
+
 
     # Define the train and validation directories under the current working directory
     train_images, train_masks, val_images, val_masks = create_train_val_splits(image_dir,
