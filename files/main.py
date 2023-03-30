@@ -16,6 +16,8 @@ from utils import (
 
 
 from torchvision.transforms import Lambda
+import numpy as np
+from PIL import Image
 
 class MakeWriteable(Lambda):
     def __init__(self):
