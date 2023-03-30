@@ -84,17 +84,28 @@ def check_accuracy(loader, model, device = "cuda"):
     print(f"Dice score: {dice_score/len(loader)}")
     model.train()
 
-def save_predictions_as_imgs(
-    loader, model, folder="saved_images/", device="cuda"
-):
+
+def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
     model.eval()
+
+    # Create folder if it doesn't exist
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
     for idx, (x, y) in enumerate(loader):
         x = x.to(device=device)
         with torch.no_grad():
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
+
+        # Save predicted mask
         torchvision.utils.save_image(
-            preds, f"{folder}/pred_{idx}.png"
+            preds, os.path.join(folder, f"pred_{idx}.png")
         )
-        torchvision.utils.save_image(y.unsqueeze(1), f"{folder}{idx}.png")
+
+        # Save ground truth mask
+        torchvision.utils.save_image(
+            y.unsqueeze(1), os.path.join(folder, f"gt_{idx}.png")
+        )
+
     model.train()
