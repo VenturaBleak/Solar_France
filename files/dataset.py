@@ -35,16 +35,12 @@ class FranceSegmentationDataset(Dataset):
         mask_np = np.array(mask, dtype=np.float32)
         mask_np[mask_np > 0] = 1.0
 
-        # Create a writeable copy of the mask_np array
-        mask_np = mask_np.copy()
-
-        mask = Image.fromarray(mask_np)
-
         if self.image_transform is not None:
             image = self.image_transform(image)
 
         if self.mask_transform is not None:
-            mask = self.mask_transform(mask)
+            mask_np_writeable = np.copy(mask_np)  # Make a copy of the NumPy array
+            mask = self.mask_transform(Image.fromarray(mask_np_writeable))  # Use the writeable copy
 
         return image, mask
 

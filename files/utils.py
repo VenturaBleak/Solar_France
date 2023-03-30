@@ -2,6 +2,7 @@ import torch
 import torchvision
 from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
+import os
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -62,7 +63,7 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def check_accuracy(loader, model, device = "cuda"):
+def check_accuracy(loader, model, device="cuda"):
     num_correct = 0
     num_pixels = 0
     dice_score = 0
@@ -74,9 +75,11 @@ def check_accuracy(loader, model, device = "cuda"):
             y = y.unsqueeze(1).to(device)
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
-            num_correct += (preds == y).sum()
+            num_correct += (preds == y).sum().item()  # Convert to Python int
             num_pixels += torch.numel(preds)
-            dice_score += (2 * (preds * y).sum()) / ((preds + y).sum() + 1e-8)
+            dice_score += (2 * (preds * y).sum().item()) / (
+                (preds + y).sum().item() + 1e-8
+            )  # Convert to Python int
 
     print(
         f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}"
