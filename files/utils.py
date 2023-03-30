@@ -82,6 +82,10 @@ def check_accuracy(loader, model, device="cuda"):
                 (preds + y).sum().item() + 1e-8
             )  # Convert to Python int
 
+            # Overall accuracy calculation
+            num_correct += (preds == y).sum().item()
+            num_pixels += torch.numel(preds)
+
             # Class-wise accuracy calculation
             for cls in range(2):
                 class_correct[cls] += ((preds == y) * (y == cls).float()).sum().item()
