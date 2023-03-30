@@ -2,8 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+from torchvision import transforms
 from model import UNET
 from dataset import FranceSegmentationDataset,create_train_val_splits
 from train import train_fn
@@ -48,34 +47,21 @@ def main():
                                                                                random_state=RANDOM_SEED)
 
     # Define the train transforms, which are applied to the training images and masks
-    train_transforms = A.Compose(
-        [A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            A.Rotate(limit=35, p=1.0),
-            A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.1),
-            A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
-                max_pixel_value=255.0,
-            ),
-            ToTensorV2(),
-        ]
-    )
+    train_transforms = transforms.Compose([
+        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+        transforms.RandomRotation(35),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
+    ])
 
     # Define the val transforms, which are applied to the training images and masks
-    val_transforms = A.Compose(
-        [
-            #
-            A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
-            #
-            A.Normalize(
-                mean=[0.0, 0.0, 0.0],
-                std=[1.0, 1.0, 1.0],
-                max_pixel_value=255.0,
-            ),
-            ToTensorV2(),
-        ]
-    )
+    val_transforms = transforms.Compose([
+        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
+    ])
 
     # instantiate model
     model = UNET(in_channels=3, out_channels=1).to(DEVICE)
