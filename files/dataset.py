@@ -40,6 +40,7 @@ class FranceSegmentationDataset(Dataset):
 
         if self.mask_transform is not None:
             mask_np_writeable = np.copy(mask_np)  # Make a copy of the NumPy array
+            mask_np_writeable.setflags(write=True)  # Set the writeable flag to True
             mask = self.mask_transform(Image.fromarray(mask_np_writeable))  # Use the writeable copy
 
         return image, mask
