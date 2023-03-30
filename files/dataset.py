@@ -32,9 +32,9 @@ class FranceSegmentationDataset(Dataset):
         mask = Image.open(mask_path).convert("L")
 
         # Convert the mask to a binary mask, where 1 is the foreground and 0 is the background
-        mask = np.array(mask, dtype=np.float32)
-        mask[mask > 0] = 1.0
-        mask = Image.fromarray(mask)
+        mask_np = np.array(mask, dtype=np.float32)
+        mask_np[mask_np > 0] = 1.0
+        mask = Image.fromarray(mask_np)
 
         if self.image_transform is not None:
             image = self.image_transform(image)
