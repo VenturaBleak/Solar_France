@@ -34,6 +34,10 @@ class FranceSegmentationDataset(Dataset):
         # Convert the mask to a binary mask, where 1 is the foreground and 0 is the background
         mask_np = np.array(mask, dtype=np.float32)
         mask_np[mask_np > 0] = 1.0
+
+        # Create a writeable copy of the mask_np array
+        mask_np = mask_np.copy()
+
         mask = Image.fromarray(mask_np)
 
         if self.image_transform is not None:
