@@ -24,26 +24,18 @@ class FranceSegmentationDataset(Dataset):
         # Load the image and mask
         image_path = os.path.join(self.image_dir, self.images[idx])
         mask_path = os.path.join(self.mask_dir, self.masks[idx])
-
-        # Convert image and mask to PIL images
-        # Image to RGB
         image = Image.open(image_path).convert("RGB")
-        # Mask to grayscale
         mask = Image.open(mask_path).convert("L")
 
-        # Convert the mask to a binary mask, where 1 is the foreground and 0 is the background
+        # Convert the mask to binary
         mask_np = np.array(mask, dtype=np.float32)
         mask_np[mask_np > 0] = 1.0
 
-        if self.image_transform is not None:
-            image = self.image_transform(image)
+        # Apply transformations
+        image_tensor = self.transform(image)
+        mask_tensor = self.mask_transform(mask)
 
-        if self.mask_transform is not None:
-            mask_np_writeable = np.copy(mask_np)  # Make a copy of the NumPy array
-            mask_np_writeable.flags.writeable = True  # Make it writeable
-            mask = self.mask_transform(Image.fromarray(mask_np_writeable))  # Use the writeable copy
-
-        return image, mask
+        return image_tensor, mask_tensor
 
 def create_train_val_splits(image_dir, mask_dir, val_size=0.2, random_state=42):
     # List all images and masks in the data directory

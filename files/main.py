@@ -49,7 +49,6 @@ def main():
     # Define the train transforms for images
     train_image_transforms = transforms.Compose([
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.RandomRotation(35),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
         transforms.ToTensor(),
@@ -59,7 +58,6 @@ def main():
     # Define the train transforms for masks
     train_mask_transforms = transforms.Compose([
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.RandomRotation(35),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
         transforms.ToTensor(),
