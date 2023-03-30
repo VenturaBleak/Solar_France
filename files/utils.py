@@ -78,8 +78,6 @@ def check_accuracy(loader, model, device="cuda"):
             y = y.to(device)
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
-            num_correct += (preds == y).sum().item()  # Convert to Python int
-            num_pixels += torch.numel(preds)
             dice_score += (2 * (preds * y).sum().item()) / (
                 (preds + y).sum().item() + 1e-8
             )  # Convert to Python int
@@ -89,10 +87,8 @@ def check_accuracy(loader, model, device="cuda"):
                 class_correct[cls] += ((preds == y) * (y == cls).float()).sum().item()
                 class_pixels[cls] += (y == cls).sum().item()
 
-    print(
-        f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}"
-    )
-    print(f"Dice score: {dice_score/len(loader)}")
+    print(f"Dice score: {dice_score/len(loader):.3f}")
+    print(f"Overall Accuracy: {num_correct/num_pixels*100:.2f}")
     print(f"Background class accuracy: {class_correct[0]/class_pixels[0]*100:.2f}")
     print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()

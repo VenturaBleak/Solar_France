@@ -56,13 +56,6 @@ def main():
         transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
     ])
 
-    # Define the val transforms for images
-    val_image_transforms = transforms.Compose([
-        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
-    ])
-
     # Define the train transforms for masks
     train_mask_transforms = transforms.Compose([
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
@@ -70,6 +63,13 @@ def main():
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
         transforms.ToTensor(),
+    ])
+
+    # Define the val transforms for images
+    val_image_transforms = transforms.Compose([
+        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
     ])
 
     # Define the val transforms for masks
