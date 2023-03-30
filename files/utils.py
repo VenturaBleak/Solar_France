@@ -69,6 +69,10 @@ def check_accuracy(loader, model, device="cuda"):
     dice_score = 0
     model.eval()
 
+    # Class-wise accuracy calculation
+    class_correct = [0, 0]  # [background_correct, foreground_correct]
+    class_pixels = [0, 0]  # [background_pixels, foreground_pixels]
+
     with torch.no_grad():
         for x, y in loader:
             x = x.to(device)
@@ -81,10 +85,17 @@ def check_accuracy(loader, model, device="cuda"):
                 (preds + y).sum().item() + 1e-8
             )  # Convert to Python int
 
+            # Class-wise accuracy calculation
+            for cls in range(2):
+                class_correct[cls] += ((preds == y) * (y == cls)).sum().item()
+                class_pixels[cls] += (y == cls).sum().item()
+
     print(
         f"Got {num_correct}/{num_pixels} with acc {num_correct/num_pixels*100:.2f}"
     )
     print(f"Dice score: {dice_score/len(loader)}")
+    print(f"Background class accuracy: {class_correct[0]/class_pixels[0]*100:.2f}")
+    print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()
 
 def save_predictions_as_imgs(
