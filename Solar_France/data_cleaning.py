@@ -26,8 +26,11 @@ def remove_unmatched_files(image_dir, mask_dir):
 # Get the current working directory
 cwd = os.getcwd()
 
-# Define the image and mask directories under the current working directory
-image_dir = os.path.join(cwd, 'data', 'trial', 'images')
-mask_dir = os.path.join(cwd, 'data', 'trial', 'masks')
+# Define the parent directory of the current working directory
+parent_dir = os.path.dirname(cwd)
+
+# Define the image and mask directories under the parent directory
+image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
+mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
 
 remove_unmatched_files(image_dir, mask_dir)

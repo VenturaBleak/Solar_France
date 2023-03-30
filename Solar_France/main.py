@@ -34,9 +34,12 @@ def main():
     # Get the current working directory
     cwd = os.getcwd()
 
-    # Define the image and mask directories under the current working directory
-    image_dir = os.path.join(cwd, 'data', 'trial', 'images')
-    mask_dir = os.path.join(cwd, 'data', 'trial', 'masks')
+    # Define the parent directory of the current working directory
+    parent_dir = os.path.dirname(cwd)
+
+    # Define the image and mask directories under the parent directory
+    image_dir = os.path.join(parent_dir, 'data',  'trial', 'images')
+    mask_dir = os.path.join(parent_dir, 'data',  'trial', 'masks')
 
     # Define the train and validation directories under the current working directory
     train_images, train_masks, val_images, val_masks = create_train_val_splits(image_dir,

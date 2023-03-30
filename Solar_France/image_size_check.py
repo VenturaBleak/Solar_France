@@ -33,8 +33,16 @@ def process_all_images(image_dir, mask_dir, image_list, mask_list):
     print("All image and mask sizes match.")
 
 def main():
-    image_dir = os.path.join(os.getcwd(), 'data', 'trial', 'masks')
-    mask_dir = os.path.join(os.getcwd(), 'data',  'trial', 'masks')
+
+    # Get the current working directory
+    cwd = os.getcwd()
+
+    # Define the parent directory of the current working directory
+    parent_dir = os.path.dirname(cwd)
+
+    # Define the image and mask directories under the parent directory
+    image_dir = os.path.join(parent_dir, 'data',  'trial', 'images')
+    mask_dir = os.path.join(parent_dir, 'data',  'trial', 'masks')
 
     images = sorted(os.listdir(image_dir))
     masks = sorted(os.listdir(mask_dir))
