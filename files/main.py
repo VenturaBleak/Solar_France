@@ -46,8 +46,8 @@ def main():
                                                                                val_size=0.1,
                                                                                random_state=RANDOM_SEED)
 
-    # Define the train transforms, which are applied to the training images and masks
-    train_transforms = transforms.Compose([
+    # Define the train transforms for images
+    train_image_transforms = transforms.Compose([
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.RandomRotation(35),
         transforms.RandomHorizontalFlip(p=0.5),
@@ -56,11 +56,26 @@ def main():
         transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
     ])
 
-    # Define the val transforms, which are applied to the training images and masks
-    val_transforms = transforms.Compose([
+    # Define the val transforms for images
+    val_image_transforms = transforms.Compose([
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
+    ])
+
+    # Define the train transforms for masks
+    train_mask_transforms = transforms.Compose([
+        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+        transforms.RandomRotation(35),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.1),
+        transforms.ToTensor(),
+    ])
+
+    # Define the val transforms for masks
+    val_mask_transforms = transforms.Compose([
+        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
+        transforms.ToTensor(),
     ])
 
     # instantiate model
@@ -77,8 +92,10 @@ def main():
         val_images=val_images,
         val_masks=val_masks,
         batch_size=BATCH_SIZE,
-        train_transforms=train_transforms,
-        val_transforms=val_transforms,
+        train_image_transforms=train_image_transforms,
+        train_mask_transforms=train_mask_transforms,
+        val_image_transforms=val_image_transforms,
+        val_mask_transforms=val_mask_transforms,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
     )
@@ -90,12 +107,13 @@ def main():
     for epoch in range(NUM_EPOCHS):
         train_fn(train_loader, model, optimizer, loss_fn, scaler, device=DEVICE)
 
-        # save model
-        checkpoint = {
-            "state_dict": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-        }
-        save_checkpoint(checkpoint)
+        if DEVICE == "cuda":
+            # save model
+            checkpoint = {
+                "state_dict": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            }
+            save_checkpoint(checkpoint)
 
         check_accuracy(val_loader, model, device=DEVICE)
 

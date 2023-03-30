@@ -1,46 +1,46 @@
 import os
+
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
+import torchvision.transforms as T
 import numpy as np
 import random
 from sklearn.model_selection import train_test_split
 
 class FranceSegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, image_list, mask_list, transform=None):
-        # image_dir: path to the image directory
+    def __init__(self, image_dir, mask_dir, images, masks, image_transform=None, mask_transform=None):
         self.image_dir = image_dir
-        # mask_dir: path to the mask directory
         self.mask_dir = mask_dir
-        # transform: transform to apply to the image and mask
-        self.transform = transform
-
-        # list all images and masks in the data directory
-        self.images = image_list
-        self.masks = mask_list
+        self.images = images
+        self.masks = masks
+        self.image_transform = image_transform
+        self.mask_transform = mask_transform
 
     def __len__(self):
-        # return the length of the dataset
         return len(self.images)
 
     def __getitem__(self, idx):
-        # load the image and mask
+        # Load the image and mask
         image_path = os.path.join(self.image_dir, self.images[idx])
         mask_path = os.path.join(self.mask_dir, self.masks[idx])
 
-        # convert image and mask to numpy array
-        # image to RGB
-        image = np.array(Image.open(image_path).convert("RGB"))
-        # mask to grayscale
-        mask = np.array(Image.open(mask_path).convert("L"), dtype=np.float32)
+        # Convert image and mask to PIL images
+        # Image to RGB
+        image = Image.open(image_path).convert("RGB")
+        # Mask to grayscale
+        mask = Image.open(mask_path).convert("L")
 
-        # convert the mask to a binary mask, where 1 is the foreground and 0 is the background
+        # Convert the mask to a binary mask, where 1 is the foreground and 0 is the background
+        mask = np.array(mask, dtype=np.float32)
         mask[mask > 0] = 1.0
+        mask = Image.fromarray(mask)
 
-        if self.transform is not None:
-            # apply transformations, store the augmented image and mask in a dictionary called augmented
-            augmented = self.transform(image=image, mask=mask)
-            image = augmented["image"]
-            mask = augmented["mask"]
+        if self.image_transform is not None:
+            image = self.image_transform(image)
+
+        if self.mask_transform is not None:
+            mask = self.mask_transform(mask)
 
         return image, mask
 

@@ -19,18 +19,20 @@ def get_loaders(
     val_images,
     val_masks,
     batch_size,
-    train_transforms,
-    val_transforms,
-    num_workers,
+    train_image_transforms,
+    train_mask_transforms,
+    val_image_transforms,
+    val_mask_transforms,
+    num_workers=0,
     pin_memory=True,
 ):
-
     train_ds = FranceSegmentationDataset(
         image_dir=image_dir,
         mask_dir=mask_dir,
-        image_list=train_images,
-        mask_list=train_masks,
-        transform=train_transforms,
+        images=train_images,
+        masks=train_masks,
+        image_transform=train_image_transforms,
+        mask_transform=train_mask_transforms,
     )
 
     train_loader = DataLoader(
@@ -44,9 +46,10 @@ def get_loaders(
     val_ds = FranceSegmentationDataset(
         image_dir=image_dir,
         mask_dir=mask_dir,
-        image_list=val_images,
-        mask_list=val_masks,
-        transform=val_transforms,
+        images=val_images,
+        masks=val_masks,
+        image_transform=val_image_transforms,
+        mask_transform=val_mask_transforms,
     )
 
     val_loader = DataLoader(
