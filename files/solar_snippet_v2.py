@@ -2,6 +2,9 @@ import os  # Import the os module for handling file paths
 import numpy as np  # Import numpy for array manipulation
 import scipy.ndimage as ndi  # Import the ndimage module from SciPy for image processing
 from PIL import Image  # Import the Image module from PIL for handling images
+import math
+from skimage.measure import regionprops_table
+import time
 
 def find_largest_white_patch(mask):
     """Function to find the largest white patch in a binary mask
@@ -9,9 +12,6 @@ def find_largest_white_patch(mask):
     :return: Center (x,y coordinates wihtin mask) and bounding box of the largest white patch
     """
     mask_labeled, num_features = ndi.label(mask)  # Label connected components in the mask
-
-    if num_features == 0:  # If there are no connected components, return None
-        return None, None
 
     patch_sizes = np.bincount(mask_labeled.flat)[1:]  # Count the size of each connected component
     largest_patch = np.argmax(patch_sizes) + 1  # Find the label of the largest connected component
@@ -22,11 +22,10 @@ def find_largest_white_patch(mask):
 
     return tuple(center), bounding_box  # Return the center and bounding box
 
-def crop_solar_panel(image, mask, size=50):
+def crop_solar_panel(image, mask):
     """Function to crop a solar panel from the image and its mask
     :param image: Image to crop
     :param mask: Mask to crop
-    :param size: Size of the crop
     :return: Cropped image and mask
     """
     mask_np = mask.copy()  # Create a copy of the mask
@@ -43,18 +42,53 @@ def crop_solar_panel(image, mask, size=50):
     cropped_image = image.crop(bounding_box)  # Crop the image using the bounding box
     cropped_mask = Image.fromarray(largest_cc_mask[bounding_box[1]:bounding_box[3], bounding_box[0]:bounding_box[2]])  # Crop the mask using the bounding box
 
+    # show both the cropped image and mask
+    # cropped_image.show()
+    # cropped_mask.show()
+
     return cropped_image, cropped_mask  # Return the cropped image and mask
 
-def paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, location, bounding_box):
-    """Function to paste a solar panel onto a target image and its mask"""
-    x, y = location  # Unpack the x and y coordinates of the target location
-    x_min, y_min, x_max, y_max = bounding_box  # Unpack the bounding box of the target area
+def find_angle(mask):
+    #show mask
+    # mask.show()
+    mask_array = np.array(mask)
+    binary_mask = (mask_array == 255).astype(int)
+    props = regionprops_table(binary_mask, properties=['orientation'])
+    print(props)
+    angle = props['orientation'][0]
+    return angle
 
-    paste_x = max(min(x - cropped_image.size[0] // 2, x_max - cropped_image.size[0]), x_min)  # Calculate the x-coordinate of the paste location
-    paste_y = max(min(y - cropped_image.size[1] // 2, y_max - cropped_image.size[1]), y_min)  # Calculate the y-coordinate of the paste location
+def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, location, bounding_box):
+    x_min, y_min, x_max, y_max = bounding_box
 
-    target_image.paste(cropped_image, (paste_x, paste_y), mask=cropped_mask)  # Paste the cropped image onto the target image using the mask
-    target_mask.paste(cropped_mask, (paste_x, paste_y), mask=cropped_mask)  # Paste the cropped mask onto the target mask using the mask
+    center_x = (x_max + x_min) // 2
+    center_y = (y_max + y_min) // 2
+
+    paste_x = center_x - cropped_image.size[0] // 2
+    paste_y = center_y - cropped_image.size[1] // 2
+
+    paste_x = max(x_min, min(paste_x, x_max - cropped_image.size[0]))
+    paste_y = max(y_min, min(paste_y, y_max - cropped_image.size[1]))
+
+    target_angle = find_angle(target_mask)
+    cropped_angle = find_angle(cropped_mask)
+
+    rotation = np.degrees(target_angle - cropped_angle)
+
+    cropped_image = cropped_image.rotate(rotation, resample=Image.BICUBIC, expand=True)
+    cropped_mask = cropped_mask.rotate(rotation, resample=Image.BICUBIC, expand=True)
+
+    # Clear the target mask, i.e. fill it with 0s, that is, remove the building segmentations
+    target_mask_np.fill(0)
+
+    # Convert the array back to an image, since we need to paste the cropped mask onto the cleared target mask
+    target_mask = Image.fromarray(target_mask_np.astype(np.uint8))
+
+    # Paste the cropped image and mask onto the target image and mask
+    target_image.paste(cropped_image, (paste_x, paste_y), mask=cropped_mask)
+    target_mask.paste(cropped_mask, (paste_x, paste_y), mask=cropped_mask)
+
+    return target_mask
 
 def modify_images(source_image, source_mask, target_image, target_mask):
     """
@@ -77,43 +111,66 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     # Find the largest white patch in the target mask
     largest_patch_location, bounding_box = find_largest_white_patch(target_mask_np)  # Find the largest white patch in the target mask
 
-    # Clear the original mask, i.e. fill it with 0s, that is, remove the building segmentations
-    target_mask_np.fill(0)
+    # Replace white values outside the bounding box with black values
+    x_min, y_min, x_max, y_max = bounding_box
+    target_mask_np[0:y_min, :] = 0
+    target_mask_np[y_max:, :] = 0
+    target_mask_np[:, 0:x_min] = 0
+    target_mask_np[:, x_max:] = 0
 
-    # Convert the array back to an image
-    target_mask = Image.fromarray(target_mask_np.astype(np.uint8))
+    target_mask = Image.fromarray(target_mask_np)
 
     # Crop the solar panel from the source image and its mask
     cropped_image, cropped_mask = crop_solar_panel(source_image, source_mask_np)
 
     # Paste the solar panel onto the target image and its mask
-    paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, largest_patch_location, bounding_box)
+    target_mask = paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, largest_patch_location, bounding_box)
 
     # Return the modified target image and its mask
     return target_image, target_mask
-
 
 if __name__ == "__main__":
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
 
-    image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
-    mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
+    solar_image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'img')
+    solar_mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'mask')
 
-    source_image = Image.open(os.path.join(image_dir, "ABEKP6A34YFLOO.png")).convert("RGB")
-    source_mask = Image.open(os.path.join(mask_dir, "ABEKP6A34YFLOO.png")).convert("L")
-    target_image = Image.open(os.path.join(image_dir, "AAYQM71ADIEGMN.png")).convert("RGB")
-    target_mask = Image.open(os.path.join(mask_dir, "AAYQM71ADIEGMN.png")).convert("L")
+    building_image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'images')
+    building_mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'building_masks')
 
-    try:
-        # most decisive line, later on we will use this function to modify the images within the data loader in the training loop
-        modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image, target_mask)
+    destination_dir = os.path.join(parent_dir, 'data', 'trial', 'modified')
 
-        modified_target_image.save(os.path.join(image_dir, "modified_target_image.png"))
-        modified_target_mask.save(os.path.join(mask_dir, "modified_target_mask.png"))
+    # Get the first 10 solar image and mask filenames
+    solar_image_files = sorted(os.listdir(solar_image_dir))[170:180]
 
-        modified_target_image.show()
-        modified_target_mask.show()
+    # Get the first 10 building image and mask filenames
+    building_image_files = sorted(os.listdir(building_image_dir))[150:160]
 
-    except NoWhitePixelsException as e:
-        print(e)
+    # time this process
+    start = time.time()
+
+    # Iterate over the first 10 elements in the solar_image_dir and building_image_dir folders
+    for solar_image_file, building_image_file, in zip(
+            solar_image_files, building_image_files
+    ):
+        source_image = Image.open(os.path.join(solar_image_dir, solar_image_file)).convert("RGB")
+        source_mask = Image.open(os.path.join(solar_mask_dir, solar_image_file)).convert("L")
+        target_image = Image.open(os.path.join(building_image_dir, building_image_file)).convert("RGB")
+        target_mask = Image.open(os.path.join(building_mask_dir, building_image_file)).convert("L")
+
+        try:
+            # most decisive line, later on we will use this function to modify the images within the data loader in the training loop
+            modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image, target_mask)
+
+            # modified_target_image.save(os.path.join(destination_dir, "modified_target_image.png"))
+            # modified_target_mask.save(os.path.join(destination_dir, "modified_target_mask.png"))
+
+            modified_target_image.show()
+            # modified_target_mask.show()
+
+        except ValueError as e:
+            print(e)
+
+    end = time.time()
+    print("Time taken: ", end - start)

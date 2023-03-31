@@ -22,3 +22,13 @@ def remove_unmatched_files(image_dir, mask_dir):
         files_removed += 1
 
     print(f"Removed {files_removed} files.")
+
+if __name__ == '__main__':
+    # run data_cleaning.py on the google images and masks, using cwd
+    cwd = os.getcwd()
+    parent_dir = os.path.dirname(cwd)
+
+    image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'img')
+    mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'mask')
+
+    remove_unmatched_files(image_dir, mask_dir)

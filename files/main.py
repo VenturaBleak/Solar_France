@@ -69,8 +69,10 @@ def main():
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
+        transforms.RandomAffine(degrees=10, translate=(0.3, 0.3)),  # no rotation, but allow translation, i.e. shift
+        transforms.RandomInvert(p=0.1),
+        # transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
     ])
 
     # Define the train transforms for masks
@@ -78,6 +80,8 @@ def main():
         transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomVerticalFlip(p=0.1),
+        transforms.RandomAffine(degrees=10, translate=(0.3, 0.3)),  # no rotation, but allow translation, i.e. shift
+        transforms.RandomInvert(p=0.1),
         transforms.ToTensor(),
     ])
 

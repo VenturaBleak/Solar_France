@@ -128,5 +128,9 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
         # Save the combined image
         torchvision.utils.save_image(combined, f"{folder}/combined_{idx}.png")
 
+        # Break after the first batch
+        if idx == 0:
+            break
+
     # Set the model back to train mode
     model.train()
