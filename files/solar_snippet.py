@@ -9,6 +9,25 @@ class NoWhitePixelsException(Exception):
 class NoSolarPanelException(Exception):
     pass
 
+def find_largest_white_patch(mask):
+    """Find the largest white patch in the mask and its bounding box."""
+    mask_labeled, num_features = ndi.label(mask)
+    if num_features == 0:
+        return None, None
+
+    patch_sizes = [np.sum(mask_labeled == i) for i in range(1, num_features + 1)]
+    largest_patch = np.argmax(patch_sizes) + 1
+
+    largest_patch_pixels = np.argwhere(mask_labeled == largest_patch)
+    center = np.mean(largest_patch_pixels, axis=0).astype(np.int32)
+
+    y_min, x_min = np.min(largest_patch_pixels, axis=0)
+    y_max, x_max = np.max(largest_patch_pixels, axis=0)
+
+    bounding_box = (x_min, y_min, x_max, y_max)
+
+    return tuple(center), bounding_box
+
 def find_solar_panel(mask):
     """Find the solar panel in the mask."""
     white_pixels = np.argwhere(mask == 255)
@@ -44,16 +63,21 @@ def crop_solar_panel(image, mask, location, size=50):
 
     return cropped_image, cropped_mask
 
-
-def paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, location):
-    """Paste the solar panel onto the target image and mask."""
+def paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, location, bounding_box):
+    """Paste the solar panel onto the target image and mask within the boundaries of the largest patch."""
     x, y = location
+    x_min, y_min, x_max, y_max = bounding_box
+
+    # Ensure the pasting position is within the bounding box
+    paste_x = max(min(x - cropped_image.size[0] // 2, x_max - cropped_image.size[0]), x_min)
+    paste_y = max(min(y - cropped_image.size[1] // 2, y_max - cropped_image.size[1]), y_min)
+
     cropped_mask_l = cropped_mask.convert("L")
     cropped_mask_rgba = Image.new("RGBA", cropped_mask_l.size)
     ImageDraw.Draw(cropped_mask_rgba).bitmap((0, 0), cropped_mask_l, fill=(255, 255, 255, 255))
 
-    target_image.paste(cropped_image, (y - cropped_image.size[1] // 2, x - cropped_image.size[0] // 2), mask=cropped_mask_rgba)
-    target_mask.paste(cropped_mask_l, (y - cropped_mask_l.size[1] // 2, x - cropped_mask_l.size[0] // 2), mask=cropped_mask_l)
+    target_image.paste(cropped_image, (paste_y, paste_x), mask=cropped_mask_rgba)
+    target_mask.paste(cropped_mask_l, (paste_y, paste_x), mask=cropped_mask_l)
 
 if __name__ == "__main__":
     # Get the current working directory
@@ -69,8 +93,8 @@ if __name__ == "__main__":
     # Load source image, source mask, target image, and target mask
     source_image = Image.open(os.path.join(image_dir, "AAKEG5A92ACPSX.png")).convert("RGB")
     source_mask = Image.open(os.path.join(mask_dir, "AAKEG5A92ACPSX.png")).convert("L")
-    target_image = Image.open(os.path.join(image_dir, "AAJKM9CB2TTSEF.png")).convert("RGB")
-    target_mask = Image.open(os.path.join(mask_dir, "AAJKM9CB2TTSEF.png")).convert("L")
+    target_image = Image.open(os.path.join(image_dir, "ABEKP6A34YFLOO.png")).convert("RGB")
+    target_mask = Image.open(os.path.join(mask_dir, "ABEKP6A34YFLOO.png")).convert("L")
 
     # Convert masks to binary masks
     source_mask_np = np.array(source_mask, dtype=np.float32)
@@ -87,7 +111,8 @@ if __name__ == "__main__":
     try:
         solar_panel_location = find_solar_panel(source_mask_np)
         cropped_image, cropped_mask = crop_solar_panel(source_image, source_mask, solar_panel_location)
-        paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, solar_panel_location)
+        largest_patch_location, bounding_box = find_largest_white_patch(target_mask_np)
+        paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, largest_patch_location, bounding_box)
 
         # Save the modified target image and target mask
         target_image.save(os.path.join(image_dir, "modified_target_image.png"))
