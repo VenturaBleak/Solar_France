@@ -8,6 +8,7 @@ def remove_unmatched_files(image_dir, mask_dir):
     images_set = set(images)
     masks_set = set(masks)
 
+
     # Find image files without corresponding mask files
     unmatched_images = images_set - masks_set
     for image_file in sorted(unmatched_images):
