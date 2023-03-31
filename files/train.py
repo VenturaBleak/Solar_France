@@ -54,4 +54,4 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, device):
         scaler.update()
 
         # update tqdm loop
-        loop.set_postfix(loss=loss.item())
+        loop.set_postfix(loss=f"{loss.item():.4f}")

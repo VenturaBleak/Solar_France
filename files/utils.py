@@ -97,9 +97,7 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()
 
-def save_predictions_as_imgs(
-    loader, model, folder="saved_images/", device="cuda"
-):
+def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -111,8 +109,24 @@ def save_predictions_as_imgs(
         with torch.no_grad():
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
-        torchvision.utils.save_image(
-            preds, f"{folder}/pred_{idx}.png"
-        )
-        torchvision.utils.save_image(y, f"{folder}/{idx}.png")
+
+        # Move x, y, and preds back to the CPU
+        x = x.cpu()
+        y = y.cpu()
+        preds = preds.cpu()
+
+        # Normalize the input image back to the range [0, 1]
+        x = (x - x.min()) / (x.max() - x.min())
+
+        # Repeat the single channel of y and preds 3 times to match the number of channels in x
+        y = y.repeat(1, 3, 1, 1)
+        preds = preds.repeat(1, 3, 1, 1)
+
+        # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
+        combined = torch.cat((x, y, preds), dim=3)
+
+        # Save the combined image
+        torchvision.utils.save_image(combined, f"{folder}/combined_{idx}.png")
+
+    # Set the model back to train mode
     model.train()
