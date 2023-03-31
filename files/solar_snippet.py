@@ -1,6 +1,13 @@
 import os
 import numpy as np
+import scipy.ndimage as ndi
 from PIL import Image, ImageOps, ImageDraw
+
+class NoWhitePixelsException(Exception):
+    pass
+
+class NoSolarPanelException(Exception):
+    pass
 
 def find_solar_panel(mask):
     """Find the solar panel in the mask."""
@@ -11,17 +18,24 @@ def find_solar_panel(mask):
     else:
         return None
 
+
 def crop_solar_panel(image, mask, location, size=50):
     """Crop the solar panel from the image and mask."""
     mask_np = np.array(mask, dtype=np.float32)
 
-    assert np.sum(mask_np == 255) > 0, "No white pixels in mask."
+    if np.sum(mask_np == 255) == 0:
+        raise NoWhitePixelsException("No white pixels in mask.")
 
-    white_pixels = np.argwhere(mask_np == 255)
+    # Find connected components
+    labeled_mask, num_features = ndi.label(mask_np == 255)
 
-    if white_pixels.size == 0:
-        return None, None
+    # Find the largest connected component
+    largest_cc = np.argmax(np.bincount(labeled_mask.flat)[1:]) + 1
 
+    # Create a binary mask with only the largest connected component
+    largest_cc_mask = (labeled_mask == largest_cc).astype(np.uint8) * 255
+
+    white_pixels = np.argwhere(largest_cc_mask == 255)
     y_min, x_min = np.min(white_pixels, axis=0)
     y_max, x_max = np.max(white_pixels, axis=0)
 
@@ -53,8 +67,8 @@ if __name__ == "__main__":
     mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
 
     # Load source image, source mask, target image, and target mask
-    source_image = Image.open(os.path.join(image_dir, "AABCN78E1YHCWW.png")).convert("RGB")
-    source_mask = Image.open(os.path.join(mask_dir, "AABCN78E1YHCWW.png")).convert("L")
+    source_image = Image.open(os.path.join(image_dir, "AAKEG5A92ACPSX.png")).convert("RGB")
+    source_mask = Image.open(os.path.join(mask_dir, "AAKEG5A92ACPSX.png")).convert("L")
     target_image = Image.open(os.path.join(image_dir, "AAJKM9CB2TTSEF.png")).convert("RGB")
     target_mask = Image.open(os.path.join(mask_dir, "AAJKM9CB2TTSEF.png")).convert("L")
 
@@ -70,25 +84,20 @@ if __name__ == "__main__":
     target_mask = Image.fromarray(target_mask_np)
 
     # Find the solar panel in the source mask
-    solar_panel_location = find_solar_panel(source_mask_np)
-
-    if solar_panel_location is not None:
-        # Crop the solar panel from the source image and source mask
+    try:
+        solar_panel_location = find_solar_panel(source_mask_np)
         cropped_image, cropped_mask = crop_solar_panel(source_image, source_mask, solar_panel_location)
+        paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, solar_panel_location)
 
-        if cropped_image is not None and cropped_mask is not None:
-            # Paste the solar panel onto the target image and target mask
-            paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, solar_panel_location)
+        # Save the modified target image and target mask
+        target_image.save(os.path.join(image_dir, "modified_target_image.png"))
+        target_mask.convert('L').save(os.path.join(mask_dir, "modified_target_mask.png"))
 
+        # Display the modified target image and target mask
+        target_image.show()
+        target_mask.show()
 
-            # Save the modified target image and target mask
-            target_image.save(os.path.join(image_dir, "modified_target_image.png"))
-            target_mask.convert('L').save(os.path.join(mask_dir, "modified_target_mask.png"))
-
-            # Display the modified target image and target mask
-            target_image.show()
-            target_mask.show()
-        else:
-            print("No white pixels found in the source mask.")
-    else:
-        print("No solar panel found in the source mask.")
+    except NoWhitePixelsException as e:
+        print(e)
+    except NoSolarPanelException as e:
+        print(e)
