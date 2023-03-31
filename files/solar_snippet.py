@@ -13,26 +13,33 @@ def find_solar_panel(mask):
 
 def crop_solar_panel(image, mask, location, size=50):
     """Crop the solar panel from the image and mask."""
-    x, y = location
-    cropped_image = image.crop((y - size // 2, x - size // 2, y + size // 2, x + size // 2))
-    cropped_mask = mask.crop((y - size // 2, x - size // 2, y + size // 2, x + size // 2))
+    mask_np = np.array(mask, dtype=np.float32)
+
+    assert np.sum(mask_np == 255) > 0, "No white pixels in mask."
+
+    white_pixels = np.argwhere(mask_np == 255)
+
+    if white_pixels.size == 0:
+        return None, None
+
+    y_min, x_min = np.min(white_pixels, axis=0)
+    y_max, x_max = np.max(white_pixels, axis=0)
+
+    cropped_image = image.crop((x_min, y_min, x_max, y_max))
+    cropped_mask = mask.crop((x_min, y_min, x_max, y_max))
 
     return cropped_image, cropped_mask
+
 
 def paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, location):
     """Paste the solar panel onto the target image and mask."""
     x, y = location
     cropped_mask_l = cropped_mask.convert("L")
-    cropped_mask_rgba = ImageOps.colorize(cropped_mask_l, (0, 0, 0, 0), (255, 255, 255, 255)).convert("RGBA")
+    cropped_mask_rgba = Image.new("RGBA", cropped_mask_l.size)
+    ImageDraw.Draw(cropped_mask_rgba).bitmap((0, 0), cropped_mask_l, fill=(255, 255, 255, 255))
 
-    target_image.paste(cropped_image, (y - cropped_image.size[1] // 2, x - cropped_image.size[0] // 2),
-                       mask=cropped_mask_rgba)
-
-    cropped_mask_transparent = cropped_mask_rgba.copy()
-    cropped_mask_transparent.putalpha(cropped_mask_l)
-    target_mask.paste(cropped_mask_transparent,
-                      (y - cropped_mask_transparent.size[1] // 2, x - cropped_mask_transparent.size[0] // 2),
-                      mask=cropped_mask_transparent)
+    target_image.paste(cropped_image, (y - cropped_image.size[1] // 2, x - cropped_image.size[0] // 2), mask=cropped_mask_rgba)
+    target_mask.paste(cropped_mask_l, (y - cropped_mask_l.size[1] // 2, x - cropped_mask_l.size[0] // 2), mask=cropped_mask_l)
 
 if __name__ == "__main__":
     # Get the current working directory
@@ -55,6 +62,8 @@ if __name__ == "__main__":
     source_mask_np = np.array(source_mask, dtype=np.float32)
     source_mask_np[source_mask_np > 0] = 255
     source_mask = Image.fromarray(source_mask_np)
+    # assert
+    assert np.sum(source_mask_np == 255) > 0, "No white pixels in source mask."
 
     target_mask_np = np.array(target_mask, dtype=np.float32)
     target_mask_np[target_mask_np > 0] = 255
@@ -67,16 +76,19 @@ if __name__ == "__main__":
         # Crop the solar panel from the source image and source mask
         cropped_image, cropped_mask = crop_solar_panel(source_image, source_mask, solar_panel_location)
 
-        # Paste the solar panel onto the target image and target mask
-        paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, solar_panel_location)
+        if cropped_image is not None and cropped_mask is not None:
+            # Paste the solar panel onto the target image and target mask
+            paste_solar_panel(target_image, target_mask, cropped_image, cropped_mask, solar_panel_location)
 
-        # Save the modified target image and target mask
-        target_image.save(os.path.join(image_dir, "modified_target_image.png"))
-        target_mask.convert('L').save(os.path.join(mask_dir, "modified_target_mask.png"))
 
-        # Display the modified target image and target mask
-        target_image.show()
-        target_mask.show()
+            # Save the modified target image and target mask
+            target_image.save(os.path.join(image_dir, "modified_target_image.png"))
+            target_mask.convert('L').save(os.path.join(mask_dir, "modified_target_mask.png"))
 
+            # Display the modified target image and target mask
+            target_image.show()
+            target_mask.show()
+        else:
+            print("No white pixels found in the source mask.")
     else:
         print("No solar panel found in the source mask.")
