@@ -21,6 +21,10 @@ class DoubleConv(nn.Module):
         return self.conv(x)
 
 class UNET(nn.Module):
+    """U-Net model for image segmentation
+    replicated from the following paper: https://arxiv.org/abs/1505.04597
+    With the help of this yt tutorial: https://www.youtube.com/watch?v=IHq1t7NxS8k
+    """
     def __init__(self, in_channels = 3, out_channels = 1, features = [64, 128, 256, 512]):
         super(UNET, self).__init__()
         # Define a list of modules for the upsampling part of the network

@@ -110,12 +110,17 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
 
-        # Move x and y back to the CPU
+        # Move x, y, and preds back to the CPU
         x = x.cpu()
         y = y.cpu()
+        preds = preds.cpu()
 
         # Normalize the input image back to the range [0, 1]
         x = (x - x.min()) / (x.max() - x.min())
+
+        # Repeat the single channel of y and preds 3 times to match the number of channels in x
+        y = y.repeat(1, 3, 1, 1)
+        preds = preds.repeat(1, 3, 1, 1)
 
         # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
         combined = torch.cat((x, y, preds), dim=3)
