@@ -2,7 +2,7 @@ import torch
 from tqdm import tqdm
 
 
-def train_fn(loader, model, optimizer, loss_fn, scaler, device):
+def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device):
     """Train function for training the model
 
     :param loader   (torch.utils.data.DataLoader): training dataloader
@@ -55,3 +55,6 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, device):
 
         # update tqdm loop
         loop.set_postfix(loss=f"{loss.item():.4f}")
+
+        # update learning rate
+        scheduler.step()
