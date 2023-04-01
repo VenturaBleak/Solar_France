@@ -39,7 +39,7 @@ def main():
     LOAD_MODEL = False
 
     ############################
-    # script
+    # Script
     ############################
     # pass on the image dimensions to the dataset class
     set_image_dimensions(IMAGE_HEIGHT, IMAGE_WIDTH)
@@ -92,7 +92,7 @@ def main():
     ############################
     # Scheduler
     ############################
-    T_max = int(num_epochs/4) # The number of epochs or iterations to complete one cosine annealing cycle.
+    T_max = int(NUM_EPOCHS/4) # The number of epochs or iterations to complete one cosine annealing cycle.
     eta_min = 1e-7 # The minimum learning rate at the end of each cycle
     # scheduler
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
