@@ -83,13 +83,21 @@ def main():
 
 
     ############################
-    # Model & Optimizer
+    # Model & Loss function
     ############################
     # instantiate model
     model = UNET(in_channels=3, out_channels=1).to(DEVICE)
     loss_fn = nn.BCEWithLogitsLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
+    ############################
+    # Optimizer
+    ############################
+    # Adam optimizer
+    WEIGHT_DECAY = 1e-4
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-8, weight_decay=WEIGHT_DECAY)
+
+    # SGD optimizer with momentum and weight decay
+    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=1e-4)
 
     ############################
     # Scheduler
@@ -102,13 +110,14 @@ def main():
     #                                                        eta_min=eta_min)
 
     # ReduceLROnPlateau scheduler
-    FACTOR = 0.1
-    PATIENCE = 15
+    FACTOR = 0.2
+    PATIENCE = 10
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
                                                            mode='min',
                                                            factor=FACTOR,
                                                            patience=PATIENCE,
-                                                           verbose=True)
+                                                           verbose=True,
+                                                           min_lr=1e-8)
 
     ############################
     # Data Loaders
@@ -152,7 +161,7 @@ def main():
         axs[i, 1].axis("off")
         axs[i, 1].imshow(mask, cmap="gray")
     plt.show()
-    exit()
+    # exit()
 
     ############################
     # Training
