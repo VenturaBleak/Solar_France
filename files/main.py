@@ -113,7 +113,7 @@ def main():
         axs[i, 1].axis("off")
         axs[i, 1].imshow(mask, cmap="gray")
     plt.show()
-    exit()
+    # exit()
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
