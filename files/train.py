@@ -66,3 +66,5 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
     else:
         # update learning rate
         scheduler.step()
+
+    print(f"Epoch {epoch} training loss: {avg_epoch_loss:.4f}")

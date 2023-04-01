@@ -185,11 +185,12 @@ def main():
             }
             save_checkpoint(checkpoint)
 
-        calculate_binary_metrics(val_loader, model, device=DEVICE)
+            # save some examples to a folder
+            save_predictions_as_imgs(
+                val_loader, model, folder="saved_images/", device=DEVICE)
 
-        # save some examples to a folder
-        save_predictions_as_imgs(
-            val_loader, model, folder="saved_images/", device=DEVICE)
+        # validation
+        calculate_binary_metrics(val_loader, model, device=DEVICE)
 
     print("All epochs completed.")
 
