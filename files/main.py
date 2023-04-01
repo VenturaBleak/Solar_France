@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -18,6 +19,7 @@ from utils import (
     get_loaders,
     check_accuracy,
     save_predictions_as_imgs,
+    calculate_binary_metrics
 )
 
 def main():
@@ -92,12 +94,21 @@ def main():
     ############################
     # Scheduler
     ############################
-    T_max = int(NUM_EPOCHS/4) # The number of epochs or iterations to complete one cosine annealing cycle.
-    eta_min = 1e-7 # The minimum learning rate at the end of each cycle
-    # scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
-                                                           T_max=T_max,
-                                                           eta_min=eta_min)
+    # Cosine annealing scheduler
+    # T_max = int(NUM_EPOCHS/4) # The number of epochs or iterations to complete one cosine annealing cycle.
+    # eta_min = 1e-7 # The minimum learning rate at the end of each cycle
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
+    #                                                        T_max=T_max,
+    #                                                        eta_min=eta_min)
+
+    # ReduceLROnPlateau scheduler
+    FACTOR = 0.1
+    PATIENCE = 15
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
+                                                           mode='min',
+                                                           factor=FACTOR,
+                                                           patience=PATIENCE,
+                                                           verbose=True)
 
     ############################
     # Data Loaders
@@ -141,7 +152,7 @@ def main():
         axs[i, 1].axis("off")
         axs[i, 1].imshow(mask, cmap="gray")
     plt.show()
-    # exit()
+    exit()
 
     ############################
     # Training
@@ -150,11 +161,14 @@ def main():
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
 
+    #time all epochs
+    start_time = time.time()
+
     # train the model
     for epoch in range(NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE)
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
 
-        if DEVICE == "cuda":
+        if DEVICE == "cuda" and epoch % 5 == 0:
             # save model
             checkpoint = {
                 "state_dict": model.state_dict(),
@@ -162,12 +176,19 @@ def main():
             }
             save_checkpoint(checkpoint)
 
-        check_accuracy(val_loader, model, device=DEVICE)
+        calculate_binary_metrics(val_loader, model, device=DEVICE)
 
-        # print some examples to a folder
-        # save_predictions_as_imgs(
-        #     val_loader, model, folder="saved_images/", device=DEVICE)
+        # save some examples to a folder
+        save_predictions_as_imgs(
+            val_loader, model, folder="saved_images/", device=DEVICE)
+
+    print("All epochs completed.")
+
+    #time end
+    end_time = time.time()
+    # print total training time in hours, minutes, seconds
+    print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
+
 
 if __name__ == "__main__":
     main()
-    print("success")

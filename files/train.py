@@ -1,8 +1,7 @@
 import torch
 from tqdm import tqdm
 
-
-def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device):
+def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch):
     """Train function for training the model
 
     :param loader   (torch.utils.data.DataLoader): training dataloader
@@ -11,20 +10,20 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device):
 
     :param loss_fn  (torch.nn.Module): loss function to use
     :param scaler   (torch.cuda.amp.GradScaler): scaler to use for mixed precision training
-        - The scaler is an instance of torch.cuda.amp.GradScaler.
-        - The scaler's purpose is to perform gradient scaling when training the model using mixed precision.
-        - Mixed precision training allows you to use a combination of lower (half) and higher (single) precision
-            floating-point formats for computations, which can result in improved training speed, lower memory usage,
-            and similar model performance compared to full-precision training.
+    :param device   (torch.device): device to train on (CPU or GPU)
+    :param epoch    (int): current epoch number
 
     :return: None
     """
 
-    # set tqdm loop
-    loop = tqdm(loader)
+    # set tqdm loop with epoch number
+    loop = tqdm(loader, desc=f"Epoch {epoch}")
 
     # set model to train mode
     model.train()
+
+    epoch_loss = 0
+    num_batches = len(loader)
 
     # iterate over batches
     for batch_idx, (data, targets) in enumerate(loop):
@@ -53,8 +52,17 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device):
         # scaler.update() is used to update the scale for next iteration
         scaler.update()
 
+        epoch_loss += loss.item()
+
         # update tqdm loop
         loop.set_postfix(loss=f"{loss.item():.4f}")
 
+    # calculate average epoch loss
+    avg_epoch_loss = epoch_loss / num_batches
+
+    # if scheduler is reduce on plateau, update learning rate on average epoch loss
+    if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+        scheduler.step(avg_epoch_loss)
+    else:
         # update learning rate
         scheduler.step()

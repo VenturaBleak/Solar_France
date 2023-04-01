@@ -1,4 +1,5 @@
 import torch
+from torch import nn
 import torchvision
 from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
@@ -130,3 +131,113 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
 
     # Set the model back to train mode
     model.train()
+
+def calculate_binary_metrics(loader, model, device="cuda"):
+    """Calculate common metrics in binary cases.
+    binary metrics: pixel accuracy, dice, precision, specificity, recall
+    pixel accuracy = (TP + TN) / (TP + TN + FP + FN) -> intuition: how many pixels are correctly classified
+    dice = 2 * (TP) / (2 * TP + FP + FN) -> intuition:
+    precision = TP / (TP + FP) -> intuition:
+    specificity = TN / (TN + FP) -> intuition:
+    recall = TP / (TP + FN) -> intuition:
+
+    Inspired by the following GitHub repository:
+    Link: https://github.com/hsiangyuzhao/Segmentation-Metrics-PyTorch/blob/master/metric.py
+
+    Args:
+        :param loader: DataLoader for the dataset
+        :param model: Model to evaluate
+        :param device: Device to use for evaluation
+    Returns:
+        :return: A list of metrics
+        """
+    metrics_calculator = BinaryMetrics()
+    model.eval()
+
+    total_metrics = [0, 0, 0, 0, 0, 0, 0]
+
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            y = y.to(device)
+            preds = torch.sigmoid(model(x))
+            preds = (preds > 0.5).float()
+
+            metrics = metrics_calculator(y, preds)
+            total_metrics = [m + n for m, n in zip(total_metrics, metrics)]
+
+    num_batches = len(loader)
+    avg_metrics = [metric / num_batches for metric in total_metrics]
+
+    pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = avg_metrics
+
+    #print(f"Pixel Accuracy: {pixel_acc:.3f} | Dice Score: {dice:.3f} | Precision: {precision:.3f} | Specificity: {specificity:.3f} | Recall: {recall:.3f} | F1 Score: {f1_score:.3f} | Background Accuracy: {bg_acc:.3f}")
+    # print only F1, precision, recall
+    print(f"F1 Score: {f1_score:.3f} | Precision: {precision:.3f} | Recall: {recall:.3f}")
+
+    model.train()
+
+    return avg_metrics
+
+class BinaryMetrics():
+    r"""Calculate common metrics in binary cases.
+    In binary cases it should be noted that y_pred shape shall be like (N, 1, H, W), or an assertion
+    error will be raised.
+    Also this calculator provides the function to calculate specificity, also known as true negative
+    rate, as specificity/TPR is meaningless in multiclass cases.
+    """
+
+    def __init__(self, eps=1e-5):
+        # epsilon to avoid zero division error
+        self.eps = eps
+
+    def _calculate_overlap_metrics(self, gt, pred):
+        output = pred.view(-1, )
+        target = gt.view(-1, ).float()
+
+        tp = torch.sum(output * target)  # TP
+        fp = torch.sum(output * (1 - target))  # FP
+        fn = torch.sum((1 - output) * target)  # FN
+        tn = torch.sum((1 - output) * (1 - target))  # TN
+
+        #     Pixel Accuracy: (TP + TN) / (TP + TN + FP + FN)
+        #     The proportion of correctly classified pixels (both foreground and background) out of the total number of pixels.
+        #     Intuition: A higher pixel accuracy means better identification of both foreground and background classes.
+        pixel_acc = (tp + tn + self.eps) / (tp + tn + fp + fn + self.eps)
+
+        #     Dice Score: 2 * (TP) / (2 * TP + FP + FN) -> Jaccard index
+        #     A measure of similarity between the predicted segmentation and the ground truth segmentation, considering both TP and FP + FN pixels.
+        #     Intuition: A higher dice score means better overlap between the predicted segmentation and the ground truth segmentation.
+        dice = (2 * tp + self.eps) / (2 * tp + fp + fn + self.eps)
+
+        #     Specificity: TN / (TN + FP)
+        #     The proportion of true negative pixels (correctly classified background pixels) out of all TN and FP pixels.
+        #     Intuition: A higher specificity means better identification of the background class.
+        precision = (tp + self.eps) / (tp + fp + self.eps)
+
+        #     Precision: TP / (TP + FP)
+        #     The proportion of true positive pixels (correctly classified foreground pixels) out of all predicted positive pixels (both TP and FP).
+        #     Intuition: A higher precision means fewer false positives.
+        recall = (tp + self.eps) / (tp + fn + self.eps)
+
+        #     Recall: TP / (TP + FN) -> also called foreground accuracy
+        #     The proportion of true positive pixels (correctly classified foreground pixels) out of all actual positive pixels (both TP  and FN).
+        #     Intuition: A higher recall means better identification of the foreground class.
+        specificity = (tn + self.eps) / (tn + fp + self.eps)
+
+        #     F1 Score: 2 * (Precision * Recall) / (Precision + Recall)
+        #     A measure of the balance between precision and recall.
+        #     Intuition: A higher F1 score means better overlap between the predicted segmentation and the ground truth segmentation.
+        f1_score = 2 * (precision * recall) / (precision + recall + self.eps)
+        bg_acc = tn / (tn + fp + self.eps)
+
+        return pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc
+
+    def __call__(self, y_true, y_pred):
+        assert y_pred.shape[1] == 1, 'Predictions must contain only one channel' \
+                                     ' when performing binary segmentation'
+        pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = self._calculate_overlap_metrics(
+            y_true.to(y_pred.device,
+                      dtype=torch.float),
+            y_pred)
+        return [pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc]

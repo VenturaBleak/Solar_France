@@ -71,33 +71,45 @@ def apply_train_transforms(img_mask):
     img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
     mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
 
+    ##############################
+    # Augment image only
+    ##############################
+
+    # Add any other custom transforms here
+    # Apply color jitter to the image only
+    if random.random() < 0.9:
+        color_jitter = transforms.ColorJitter(brightness=0.6, contrast=0.5, saturation=0.4, hue=0.1)
+        img = color_jitter(img)
+
+    # Apply random autocontrast to the image only
+    autocontrast = transforms.RandomAutocontrast(p=0.1)
+    img = autocontrast(img)
+
+    ##############################
+    # Augment both image and mask
+    ##############################
+
     # Apply random horizontal and vertical flips
     if random.random() < 0.5:
         hflip = transforms.RandomHorizontalFlip(p=1.0)
         img = hflip(img)
         mask = hflip(mask)
 
-    if random.random() < 0.1:
+    if random.random() < 0.5:
         vflip = transforms.RandomVerticalFlip(p=1.0)
         img = vflip(img)
         mask = vflip(mask)
 
     # Apply random rotation and translation (shift)
     # specify hyperparameters for rotation and translation
-    ROTATION = 35
-    TRANSLATION = 0.4
+    ROTATION = 50
+    TRANSLATION = 0.45
     # apply transforms
     angle = random.uniform(-ROTATION, ROTATION)
     translate_x = random.uniform(-TRANSLATION * IMAGE_WIDTH, TRANSLATION * IMAGE_WIDTH)
     translate_y = random.uniform(-TRANSLATION * IMAGE_HEIGHT, TRANSLATION * IMAGE_HEIGHT)
     img = TF.affine(img, angle, (translate_x, translate_y), 1, 0)
     mask = TF.affine(mask, angle, (translate_x, translate_y), 1, 0)
-
-    # Add any other custom transforms here
-    # Apply color jitter to the image only
-    if random.random() < 1:
-        color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.5, hue=0.1)
-        img = color_jitter(img)
 
     # transform to tensor
     img = transforms.ToTensor()(img)
