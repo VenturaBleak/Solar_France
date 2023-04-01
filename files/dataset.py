@@ -81,10 +81,6 @@ def apply_train_transforms(img_mask):
         color_jitter = transforms.ColorJitter(brightness=0.6, contrast=0.5, saturation=0.4, hue=0.1)
         img = color_jitter(img)
 
-    # Apply random autocontrast to the image only
-    autocontrast = transforms.RandomAutocontrast(p=0.1)
-    img = autocontrast(img)
-
     ##############################
     # Augment both image and mask
     ##############################
