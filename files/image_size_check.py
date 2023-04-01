@@ -40,8 +40,8 @@ def main():
     parent_dir = os.path.dirname(cwd)
 
     # Define the image and mask directories under the parent directory
-    image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
-    mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
+    image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'images')
+    mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'building_masks')
 
     images = sorted(os.listdir(image_dir))
     masks = sorted(os.listdir(mask_dir))

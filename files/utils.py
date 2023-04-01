@@ -20,10 +20,8 @@ def get_loaders(
     val_images,
     val_masks,
     batch_size,
-    train_image_transforms,
-    train_mask_transforms,
-    val_image_transforms,
-    val_mask_transforms,
+    train_transforms,
+    val_transforms,
     num_workers=0,
     pin_memory=True,
 ):
@@ -32,8 +30,7 @@ def get_loaders(
         mask_dir=mask_dir,
         images=train_images,
         masks=train_masks,
-        image_transform=train_image_transforms,
-        mask_transform=train_mask_transforms,
+        transform=train_transforms,
     )
 
     train_loader = DataLoader(
@@ -49,8 +46,7 @@ def get_loaders(
         mask_dir=mask_dir,
         images=val_images,
         masks=val_masks,
-        image_transform=val_image_transforms,
-        mask_transform=val_mask_transforms,
+        transform=val_transforms,
     )
 
     val_loader = DataLoader(
@@ -127,6 +123,10 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
 
         # Save the combined image
         torchvision.utils.save_image(combined, f"{folder}/combined_{idx}.png")
+
+        # Break after the first batch
+        if idx == 0:
+            break
 
     # Set the model back to train mode
     model.train()

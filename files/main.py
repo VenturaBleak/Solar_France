@@ -4,7 +4,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from model import UNET
-from dataset import FranceSegmentationDataset,create_train_val_splits
+from dataset import (FranceSegmentationDataset,
+                     create_train_val_splits,
+                     apply_train_transforms,
+                     apply_val_transforms,
+                     set_image_dimensions)
 from train import train_fn
 from data_cleaning import remove_unmatched_files
 from image_size_check import check_dimensions
@@ -31,6 +35,8 @@ def main():
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     LOAD_MODEL = False
+
+    set_image_dimensions(IMAGE_HEIGHT, IMAGE_WIDTH)
 
     # Get the current working directory
     cwd = os.getcwd()
@@ -64,35 +70,8 @@ def main():
                                                                                val_size=0.1,
                                                                                random_state=RANDOM_SEED)
 
-    # Define the train transforms for images
-    train_image_transforms = transforms.Compose([
-        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.1),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
-    ])
-
-    # Define the train transforms for masks
-    train_mask_transforms = transforms.Compose([
-        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomVerticalFlip(p=0.1),
-        transforms.ToTensor(),
-    ])
-
-    # Define the val transforms for images
-    val_image_transforms = transforms.Compose([
-        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0]),
-    ])
-
-    # Define the val transforms for masks
-    val_mask_transforms = transforms.Compose([
-        transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH)),
-        transforms.ToTensor(),
-    ])
+    train_transforms = transforms.Lambda(apply_train_transforms)
+    val_transforms = transforms.Lambda(apply_val_transforms)
 
     # instantiate model
     model = UNET(in_channels=3, out_channels=1).to(DEVICE)
@@ -108,13 +87,33 @@ def main():
         val_images=val_images,
         val_masks=val_masks,
         batch_size=BATCH_SIZE,
-        train_image_transforms=train_image_transforms,
-        train_mask_transforms=train_mask_transforms,
-        val_image_transforms=val_image_transforms,
-        val_mask_transforms=val_mask_transforms,
+        train_transforms=train_transforms,
+        val_transforms=val_transforms,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
     )
+
+    # visualize some sample images
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    images, masks = next(iter(train_loader))
+    n_samples = BATCH_SIZE // 2
+
+    # Create a figure with multiple subplots
+    fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
+
+    # Iterate over the images and masks and plot them side by side
+    for i in range(n_samples):
+        img = np.transpose(images[i].numpy(), (1, 2, 0))
+        mask = np.squeeze(masks[i].numpy(), axis=0)
+
+        axs[i, 0].axis("off")
+        axs[i, 0].imshow(img)
+        axs[i, 1].axis("off")
+        axs[i, 1].imshow(mask, cmap="gray")
+    plt.show()
+    exit()
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
