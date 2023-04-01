@@ -30,7 +30,7 @@ def main():
     LEARNING_RATE = 1e-4
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 50
+    NUM_EPOCHS = 200
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -191,7 +191,7 @@ def main():
 
             # save some examples to a folder
             save_predictions_as_imgs(
-                val_loader, model, folder="saved_images/", device=DEVICE)
+                val_loader, model, folder="saved_images/", device=DEVICE, epoch=epoch)
 
     print("All epochs completed.")
 

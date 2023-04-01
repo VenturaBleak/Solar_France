@@ -94,7 +94,7 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()
 
-def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda"):
+def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda", epoch=0):
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -123,7 +123,7 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
         combined = torch.cat((x, y, preds), dim=3)
 
         # Save the combined image
-        torchvision.utils.save_image(combined, f"{folder}/combined_{idx}.png")
+        torchvision.utils.save_image(combined, f"{folder}/Epoch_{epoch}.png")
 
         # Break after the first batch
         if idx == 0:
