@@ -142,10 +142,10 @@ if __name__ == "__main__":
     destination_dir = os.path.join(parent_dir, 'data', 'trial', 'modified')
 
     # Get the first 10 solar image and mask filenames
-    solar_image_files = sorted(os.listdir(solar_image_dir))[190:200]
+    solar_image_files = sorted(os.listdir(solar_image_dir))[170:180]
 
     # Get the first 10 building image and mask filenames
-    building_image_files = sorted(os.listdir(building_image_dir))[190:200]
+    building_image_files = sorted(os.listdir(building_image_dir))[150:160]
 
     # time this process
     start = time.time()
