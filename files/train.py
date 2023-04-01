@@ -67,4 +67,5 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         # update learning rate
         scheduler.step()
 
-    print(f"Epoch {epoch} training loss: {avg_epoch_loss:.4f}")
+    # update tqdm loop
+    loop.set_postfix(loss=f"{avg_epoch_loss:.4f}")

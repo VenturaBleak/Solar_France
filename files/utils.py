@@ -173,7 +173,7 @@ def calculate_binary_metrics(loader, model, device="cuda"):
 
     #print(f"Pixel Accuracy: {pixel_acc:.3f} | Dice Score: {dice:.3f} | Precision: {precision:.3f} | Specificity: {specificity:.3f} | Recall: {recall:.3f} | F1 Score: {f1_score:.3f} | Background Accuracy: {bg_acc:.3f}")
     # print only F1, precision, recall
-    print(f"F1 Score: {f1_score:.3f} | Precision: {precision:.3f} | Recall: {recall:.3f}")
+    print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f}")
 
     model.train()
 
