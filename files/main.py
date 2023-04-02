@@ -299,9 +299,9 @@ def main():
             }
             save_checkpoint(checkpoint)
 
-        # save some examples to a folder
-        save_predictions_as_imgs(
-            val_loader, model, folder="saved_images/", device=DEVICE, epoch=epoch, unnorm=unorm)
+            # save some examples to a folder
+            save_predictions_as_imgs(
+                val_loader, model, folder="saved_images/", device=DEVICE, epoch=epoch, unnorm=unorm)
 
     print("All epochs completed.")
 
