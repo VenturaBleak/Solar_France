@@ -9,7 +9,7 @@ from torchinfo import summary
 from model import (UNET,
                    Segformer, create_segformer,
                    DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
-                   PolynomialLRDecay
+                   PolynomialLRDecay, GradualWarmupScheduler
                    )
 from dataset import (FranceSegmentationDataset,
                      create_train_val_splits,
@@ -44,6 +44,7 @@ def main():
     IMAGE_HEIGHT = 416  # 400 originally
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
+    WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05)
 
     ############################
     # Script
@@ -149,7 +150,6 @@ def main():
 
 
 
-
     ############################
     # Optimizer
     ############################
@@ -174,34 +174,45 @@ def main():
     ############################
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler
-    # T_0 =  int(len(train_loader) * (NUM_EPOCHS/30)) # The number of epochs or iterations to complete one cosine annealing cycle.
-    # T_MULT = 2
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-    #                                                                  T_0 = T_0,
-    #                                                                  T_mult=T_MULT,
-    #                                                                  eta_min=LEARNING_RATE * 1e-4,
-    #                                                                  verbose=False)
+    T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
+    print('Cosing Annealing with Warm Restarts scheduler - batches in T_0: ', T_0)
+    T_MULT = 2
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+                                                                     T_0 = T_0,
+                                                                     T_mult=T_MULT,
+                                                                     eta_min=LEARNING_RATE * 1e-4,
+                                                                     verbose=False)
 
     # update the learning rate after each epoch for the following schedulers
-    # # Polynomial learning rate scheduler
-    # visulaized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
-    MAX_ITER = len(train_loader)
-    POLY_POWER = 2
-    scheduler = PolynomialLRDecay(optimizer=optimizer,
-                                  max_decay_steps=MAX_ITER,
-                                  end_learning_rate=LEARNING_RATE*1e-4,
-                                  power=POLY_POWER)
+    # Polynomial learning rate scheduler
+    # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
+    # MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
+    # print('Polynomial learning rate scheduler - MAX_Iter (iterations until decay): ', MAX_ITER)
+    # POLY_POWER = 2.0
+    # scheduler = PolynomialLRDecay(optimizer=optimizer,
+    #                               max_decay_steps=MAX_ITER, # when to stop decay
+    #                               end_learning_rate=LEARNING_RATE*1e-4,
+    #                               power=POLY_POWER)
 
-    # ReduceLROnPlateau scheduler
-    # FACTOR = 0.2
-    # PATIENCE = 10
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
-    #                                                        mode='min',
-    #                                                        factor=FACTOR,
-    #                                                        patience=PATIENCE,
-    #                                                        verbose=True,
-    #                                                        min_lr=1e-8)
 
+
+    # Scheduler warmup
+    # handle batch level schedulers
+    if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
+            or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
+        WARMUP_EPOCHS = WARMUP_EPOCHS * len(train_loader)
+        print("Warmup Batches: ", WARMUP_EPOCHS)
+        IS_BATCH = True
+    else:
+        IS_BATCH = False
+        print("Warmup Epochs: ", WARMUP_EPOCHS)
+
+    # GradualWarmupScheduler
+    scheduler = GradualWarmupScheduler(optimizer,
+                                      multiplier=1,
+                                      total_epoch=WARMUP_EPOCHS, # when to stop warmup
+                                      after_scheduler=scheduler,
+                                       is_batch = IS_BATCH)
 
     ############################
     # Visualize sample images
