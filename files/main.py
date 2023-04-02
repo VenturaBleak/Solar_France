@@ -6,7 +6,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
-from model import UNET, Segformer, create_segformer
+from model import (UNET,
+                   Segformer, create_segformer,
+                   DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss)
 from dataset import (FranceSegmentationDataset,
                      create_train_val_splits,
                      apply_train_transforms,
@@ -21,8 +23,7 @@ from utils import (
     get_loaders,
     check_accuracy,
     save_predictions_as_imgs,
-    calculate_binary_metrics,
-    DiceBCELoss
+    calculate_binary_metrics
 )
 
 def main():
@@ -110,14 +111,14 @@ def main():
     # Model & Loss function
     ############################
     # UNET
-    # model = UNET(in_channels=3, out_channels=1).to(DEVICE)
+    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
 
     # Segformer
-    if DEVICE == "cuda":
-        segformer_arch = 'B1'
-    else:
-        segformer_arch = 'B0'
-    model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
+    # if DEVICE == "cuda":
+    #     segformer_arch = 'B1'
+    # else:
+    #     segformer_arch = 'B0'
+    # model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
@@ -125,8 +126,27 @@ def main():
     ############################
     # Loss function
     ############################
+    # BCE
     # loss_fn = nn.BCEWithLogitsLoss()
-    loss_fn = DiceBCELoss()
+
+    # Dice
+    # loss_fn = DiceLoss()
+
+    # IoU
+    # loss_fn = IoULoss()
+
+    # Tversky
+    loss_fn = TverskyLoss()
+
+    # Careful: Loss functions below do not work with autocast in training loop!
+    # Dice + BCE
+    # loss_fn = DiceBCELoss()
+
+    # Focal
+    # loss_fn = FocalLoss()
+
+
+
 
     ############################
     # Optimizer
