@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms.functional as TF
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -87,7 +86,6 @@ class UNET(nn.Module):
 #######################
 # Segformer
 #######################
-
 from math import sqrt
 from torch import einsum
 import torch.nn.functional as F
@@ -289,7 +287,9 @@ class Segformer(nn.Module):
             nn.Conv2d(decoder_dim, num_classes, 1),
         )
 
+        # Upsampling: choose between bilinear or deconvolution
         self.upsample = nn.Upsample(size=(416, 416), mode='bilinear', align_corners=False)
+        # self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
 
     def forward(self, x):
         layer_outputs = self.mit(x, return_layer_outputs=True)
