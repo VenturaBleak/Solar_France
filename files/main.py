@@ -32,8 +32,7 @@ def main():
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 10
-    WARMUP_FRACTION = 0.1
+    NUM_EPOCHS = 100
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -132,39 +131,14 @@ def main():
     ############################
     # Scheduler
     ############################
-    # Custom combined scheduler
-    class CombinedScheduler(torch.optim.lr_scheduler._LRScheduler):
-        def __init__(self, optimizer, warmup_steps, cosine_annealing_scheduler, last_epoch=-1):
-            self.warmup_steps = warmup_steps
-            self.cosine_annealing_scheduler = cosine_annealing_scheduler
-            super().__init__(optimizer, last_epoch)
-
-        def get_lr(self):
-            if self.last_epoch < self.warmup_steps:
-                return [base_lr * self.last_epoch / self.warmup_steps for base_lr in self.base_lrs]
-            else:
-                return self.cosine_annealing_scheduler.get_last_lr()
-
-    # Cosine annealing scheduler
-    WARMUP_STEPS = int(NUM_EPOCHS * len(train_loader) * WARMUP_FRACTION)
-    T_MAX = (len(train_loader) * NUM_EPOCHS) - WARMUP_STEPS
-    cosine_annealing_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
-                                                                T_max=T_MAX,
-                                                                eta_min=LEARNING_RATE * 1e-5,
-                                                                verbose=False,
-                                                                last_epoch=-1)
-
-    # Combined scheduler
-    scheduler = CombinedScheduler(optimizer, WARMUP_STEPS, cosine_annealing_scheduler)
-
     # Cosine annealing with warm restarts scheduler
-    # T_0 = len(train_loader)*5 # The number of epochs or iterations to complete one cosine annealing cycle.
-    # T_MULT = 1.1
-    # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-    #                                                      T_0 = T_0,
-    #                                                      T_mult=1,
-    #                                                      eta_min=LEARNING_RATE * 1e-4,
-    #                                                      verbose=True)
+    T_0 =  int((len(train_loader) * NUM_EPOCHS)/10) # The number of epochs or iterations to complete one cosine annealing cycle.
+    T_MULT = 1.2
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+                                                         T_0 = T_0,
+                                                         T_mult=T_MULT,
+                                                         eta_min=LEARNING_RATE * 1e-4,
+                                                         verbose=True)
 
     # # Polynomial learning rate scheduler
     # MAX_EPOCHS = len(train_loader)
@@ -228,7 +202,7 @@ def main():
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, device=DEVICE)
         pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = avg_metrics
-        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{math.floor(scheduler*1e10)/1e10}")
+        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{math.floor(scheduler.get_lr()*1e10)/1e10}")
 
         # save model and sample predictions
         if DEVICE == "cuda" and epoch % 5 == 0:
