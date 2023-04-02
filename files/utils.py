@@ -1,9 +1,9 @@
 import torch
-from torch import nn
 import torchvision
 from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
 import os
+import torch.nn.functional as F
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -94,40 +94,48 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()
 
-def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda", epoch=0):
+def save_predictions_as_imgs(loader, model, epoch, unnorm, folder="saved_images/", device="cuda", ):
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
 
     # set model to eval mode
     model.eval()
+    all_images = []
     for idx, (x, y) in enumerate(loader):
         x = x.to(device=device)
         with torch.no_grad():
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
 
-        # Move x, y, and preds back to the CPU
-        x = x.cpu()
-        y = y.cpu()
-        preds = preds.cpu()
+            # Move x, y, and preds back to the CPU
+            x = x.cpu()
+            y = y.cpu()
+            preds = preds.cpu()
 
-        # Normalize the input image back to the range [0, 1]
-        x = (x - x.min()) / (x.max() - x.min())
+            # Unnormalize the input image
+            for i in range(x.size(0)):
+                x[i] = unnorm(x[i])
 
-        # Repeat the single channel of y and preds 3 times to match the number of channels in x
-        y = y.repeat(1, 3, 1, 1)
-        preds = preds.repeat(1, 3, 1, 1)
+            # Normalize the input image back to the range [0, 1]
+            x = (x - x.min()) / (x.max() - x.min())
 
-        # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
-        combined = torch.cat((x, y, preds), dim=3)
+            # Repeat the single channel of y and preds 3 times to match the number of channels in x
+            y = y.repeat(1, 3, 1, 1)
+            preds = preds.repeat(1, 3, 1, 1)
 
-        # Save the combined image
-        torchvision.utils.save_image(combined, f"{folder}/Epoch_{epoch:08d}.png")
+            # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
+            combined = torch.cat((x, y, preds), dim=3)
+            all_images.append(combined)
 
-        # Break after the first batch
-        if idx == 2:
-            break
+            # Break after the third batch
+            if idx == 2:
+                break
+
+    # Stack all images vertically
+    stacked_images = torch.cat(all_images, dim=2)
+    # Save the stacked images
+    torchvision.utils.save_image(stacked_images, f"{folder}/Epoch_{epoch:08d}.png")
 
     # Set the model back to train mode
     model.train()
@@ -233,6 +241,10 @@ class BinaryMetrics():
         #     A measure of the balance between precision and recall.
         #     Intuition: A higher F1 score means better overlap between the predicted segmentation and the ground truth segmentation.
         f1_score = 2 * (precision * recall) / (precision + recall + self.eps)
+
+        #     Background Accuracy: TN / (TN + FP)
+        #     The proportion of true negative pixels (correctly classified background pixels) out of all TN and FP pixels.
+        #     Intuition: A higher specificity means better identification of the background class.
         bg_acc = tn / (tn + fp + self.eps)
 
         return pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc

@@ -28,7 +28,7 @@ if __name__ == '__main__':
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
 
-    image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'img')
-    mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'mask')
+    image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'images')
+    mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'masks')
 
     remove_unmatched_files(image_dir, mask_dir)

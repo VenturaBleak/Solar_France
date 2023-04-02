@@ -1,7 +1,265 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms.functional as TF
 
+#segformer modules
+from math import sqrt
+from torch import einsum
+import torch.nn.functional as F
+from einops import rearrange, reduce
+from einops.layers.torch import Rearrange
+
+# scheduler
+from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+
+####################
+# Loss functions
+####################
+# code taken from: https://www.kaggle.com/bigironsphere/loss-function-library-keras-pytorch
+
+# Dice Loss
+class DiceLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(DiceLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        # use torch.sigmoid instead of F.sigmoid
+        inputs = torch.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        intersection = (inputs * targets).sum()
+        dice = (2. * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+
+        return 1 - dice
+
+# Dice BCE Loss
+class DiceBCELoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(DiceBCELoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = torch.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        intersection = (inputs * targets).sum()
+        dice_loss = 1 - (2. * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+        BCE = F.binary_cross_entropy(inputs, targets, reduction='mean')
+        Dice_BCE = BCE + dice_loss
+
+        return Dice_BCE
+
+# IoU Loss
+class IoULoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(IoULoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = torch.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        # intersection is equivalent to True Positive count
+        # union is the mutually inclusive area of all labels & predictions
+        intersection = (inputs * targets).sum()
+        total = (inputs + targets).sum()
+        union = total - intersection
+
+        IoU = (intersection + smooth) / (union + smooth)
+
+        return 1 - IoU
+
+# Focal Loss
+ALPHA = 0.8
+GAMMA = 2
+
+class FocalLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(FocalLoss, self).__init__()
+
+    def forward(self, inputs, targets, alpha=ALPHA, gamma=GAMMA, smooth=1):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = torch.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        # first compute binary cross-entropy
+        BCE = F.binary_cross_entropy(inputs, targets, reduction='mean')
+        BCE_EXP = torch.exp(-BCE)
+        focal_loss = alpha * (1 - BCE_EXP) ** gamma * BCE
+
+        return focal_loss
+
+# Tversky Loss
+ALPHA = 0.5
+BETA = 0.5
+
+
+class TverskyLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(TverskyLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = torch.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        # True Positives, False Positives & False Negatives
+        TP = (inputs * targets).sum()
+        FP = ((1 - targets) * inputs).sum()
+        FN = (targets * (1 - inputs)).sum()
+
+        Tversky = (TP + smooth) / (TP + alpha * FP + beta * FN + smooth)
+
+        return 1 - Tversky
+
+####################
+# Schedulers
+####################
+# code taken from: https://github.com/cmpark0126/pytorch-polynomial-lr-decay/blob/master/torch_poly_lr_decay/torch_poly_lr_decay.py
+class PolynomialLRDecay(_LRScheduler):
+    """Polynomial learning rate decay until step reach to max_decay_step
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        max_decay_steps: after this step, we stop decreasing learning rate
+        end_learning_rate: scheduler stopping learning rate decay, value of learning rate must be this value
+        power: The power of the polynomial.
+    """
+
+    def __init__(self, optimizer, max_decay_steps, end_learning_rate=0.0001, power=1.0):
+        if max_decay_steps <= 1.:
+            raise ValueError('max_decay_steps should be greater than 1.')
+        self.max_decay_steps = max_decay_steps
+        self.end_learning_rate = end_learning_rate
+        self.power = power
+        self.last_step = 0
+
+        # Initialize the base class and get the initial learning rates
+        super().__init__(optimizer)
+
+        # Add the _last_lr attribute to store the last learning rate values
+        self._last_lr = self.get_lr()
+
+    def get_lr(self):
+        if self.last_step > self.max_decay_steps:
+            return [self.end_learning_rate for _ in self.base_lrs]
+
+        return [(base_lr - self.end_learning_rate) *
+                ((1 - self.last_step / self.max_decay_steps) ** (self.power)) +
+                self.end_learning_rate for base_lr in self.base_lrs]
+
+    def step(self, step=None):
+        if step is None:
+            step = self.last_step + 1
+        self.last_step = step if step != 0 else 1
+        if self.last_step <= self.max_decay_steps:
+            decay_lrs = [(base_lr - self.end_learning_rate) *
+                         ((1 - self.last_step / self.max_decay_steps) ** (self.power)) +
+                         self.end_learning_rate for base_lr in self.base_lrs]
+            for param_group, lr in zip(self.optimizer.param_groups, decay_lrs):
+                param_group['lr'] = lr
+
+    # Add the get_last_lr function to return the _last_lr attribute
+    def get_last_lr(self):
+        self._last_lr = self.get_lr()
+        return self._last_lr
+
+
+
+# Warmup Scheduler
+# code taken from: https://www.kaggle.com/datasets/aryankhatana/pytorch-warmup-scheduler
+class GradualWarmupScheduler(_LRScheduler):
+    """ Gradually warm-up(increasing) learning rate in optimizer.
+    Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        multiplier: target learning rate = base lr * multiplier if multiplier > 1.0. if multiplier = 1.0, lr starts from 0 and ends up with the base_lr.
+        total_epoch: target learning rate is reached at total_epoch, gradually
+        after_scheduler: after target_epoch, use this scheduler(eg. ReduceLROnPlateau)
+    """
+
+    def __init__(self, optimizer, multiplier, total_epoch, after_scheduler=None, is_batch=False):
+        self.multiplier = multiplier
+        if self.multiplier < 1.:
+            raise ValueError('multiplier should be greater than or equal to 1.')
+        self.total_epoch = total_epoch
+        self.after_scheduler = after_scheduler
+        self.finished = False
+        self.is_batch = is_batch
+        super(GradualWarmupScheduler, self).__init__(optimizer)
+
+        # Add the _last_lr attribute to store the last learning rate values
+        self._last_lr = self.get_lr()
+
+    def get_lr(self):
+        if self.last_epoch > self.total_epoch:
+            if self.after_scheduler:
+                if not self.finished:
+                    self.after_scheduler.base_lrs = [base_lr * self.multiplier for base_lr in self.base_lrs]
+                    self.finished = True
+                return self.after_scheduler.get_last_lr()
+            return [base_lr * self.multiplier for base_lr in self.base_lrs]
+
+        if self.multiplier == 1.0:
+            return [base_lr * (float(self.last_epoch) / self.total_epoch) for base_lr in self.base_lrs]
+        else:
+            return [base_lr * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.) for base_lr in self.base_lrs]
+
+    def step_ReduceLROnPlateau(self, metrics, epoch=None):
+        if epoch is None:
+            epoch = self.last_epoch + 1
+        self.last_epoch = epoch if epoch != 0 else 1  # ReduceLROnPlateau is called at the end of epoch, whereas others are called at beginning
+        if self.last_epoch <= self.total_epoch:
+            warmup_lr = [base_lr * ((self.multiplier - 1.) * self.last_epoch / self.total_epoch + 1.) for base_lr in self.base_lrs]
+            for param_group, lr in zip(self.optimizer.param_groups, warmup_lr):
+                param_group['lr'] = lr
+        else:
+            if epoch is None:
+                self.after_scheduler.step(metrics, None)
+            else:
+                self.after_scheduler.step(metrics, epoch - self.total_epoch)
+
+    def step(self, epoch=None, metrics=None):
+        if type(self.after_scheduler) != ReduceLROnPlateau:
+            if self.finished and self.after_scheduler:
+                if epoch is None:
+                    self.after_scheduler.step(None)
+                else:
+                    self.after_scheduler.step(epoch - self.total_epoch)
+                self._last_lr = self.after_scheduler.get_last_lr()
+            else:
+                return super(GradualWarmupScheduler, self).step(epoch)
+        else:
+            self.step_ReduceLROnPlateau(metrics, epoch)
+
+    def get_last_lr(self):
+        self._last_lr = self.get_lr()
+        return self._last_lr
+
+####################
+# Models
+####################
+# - UNET
+# - Segformer
+
+####################
+# UNET
+####################
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DoubleConv, self).__init__()
@@ -84,14 +342,245 @@ class UNET(nn.Module):
         # Apply final 1x1 convolution to produce output
         return self.final_conv(x)
 
+#######################
+# Segformer
+#######################
+# code from: https://github.com/lucidrains/segformer-pytorch
+
+# helpers
+def exists(val):
+    return val is not None
+
+def cast_tuple(val, depth):
+    return val if isinstance(val, tuple) else (val,) * depth
+
+# classes
+class DsConv2d(nn.Module):
+    def __init__(self, dim_in, dim_out, kernel_size, padding, stride = 1, bias = True):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(dim_in, dim_in, kernel_size = kernel_size, padding = padding, groups = dim_in, stride = stride, bias = bias),
+            nn.Conv2d(dim_in, dim_out, kernel_size = 1, bias = bias)
+        )
+    def forward(self, x):
+        return self.net(x)
+
+class LayerNorm(nn.Module):
+    def __init__(self, dim, eps = 1e-5):
+        super().__init__()
+        self.eps = eps
+        self.g = nn.Parameter(torch.ones(1, dim, 1, 1))
+        self.b = nn.Parameter(torch.zeros(1, dim, 1, 1))
+
+    def forward(self, x):
+        std = torch.var(x, dim = 1, unbiased = False, keepdim = True).sqrt()
+        mean = torch.mean(x, dim = 1, keepdim = True)
+        return (x - mean) / (std + self.eps) * self.g + self.b
+
+class PreNorm(nn.Module):
+    def __init__(self, dim, fn):
+        super().__init__()
+        self.fn = fn
+        self.norm = LayerNorm(dim)
+
+    def forward(self, x):
+        return self.fn(self.norm(x))
+
+class EfficientSelfAttention(nn.Module):
+    def __init__(
+        self,
+        *,
+        dim,
+        heads,
+        reduction_ratio
+    ):
+        super().__init__()
+        self.scale = (dim // heads) ** -0.5
+        self.heads = heads
+
+        self.to_q = nn.Conv2d(dim, dim, 1, bias = False)
+        self.to_kv = nn.Conv2d(dim, dim * 2, reduction_ratio, stride = reduction_ratio, bias = False)
+        self.to_out = nn.Conv2d(dim, dim, 1, bias = False)
+
+    def forward(self, x):
+        h, w = x.shape[-2:]
+        heads = self.heads
+
+        q, k, v = (self.to_q(x), *self.to_kv(x).chunk(2, dim = 1))
+        q, k, v = map(lambda t: rearrange(t, 'b (h c) x y -> (b h) (x y) c', h = heads), (q, k, v))
+
+        sim = einsum('b i d, b j d -> b i j', q, k) * self.scale
+        attn = sim.softmax(dim = -1)
+
+        out = einsum('b i j, b j d -> b i d', attn, v)
+        out = rearrange(out, '(b h) (x y) c -> b (h c) x y', h = heads, x = h, y = w)
+        return self.to_out(out)
+
+class MixFeedForward(nn.Module):
+    def __init__(
+        self,
+        *,
+        dim,
+        expansion_factor
+    ):
+        super().__init__()
+        hidden_dim = dim * expansion_factor
+        self.net = nn.Sequential(
+            nn.Conv2d(dim, hidden_dim, 1),
+            DsConv2d(hidden_dim, hidden_dim, 3, padding = 1),
+            nn.GELU(),
+            nn.Conv2d(hidden_dim, dim, 1)
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+class MiT(nn.Module):
+    def __init__(
+        self,
+        *,
+        channels,
+        dims,
+        heads,
+        ff_expansion,
+        reduction_ratio,
+        num_layers
+    ):
+        super().__init__()
+        stage_kernel_stride_pad = ((7, 4, 3), (3, 2, 1), (3, 2, 1), (3, 2, 1))
+
+        dims = (channels, *dims)
+        dim_pairs = list(zip(dims[:-1], dims[1:]))
+
+        self.stages = nn.ModuleList([])
+
+        for (dim_in, dim_out), (kernel, stride, padding), num_layers, ff_expansion, heads, reduction_ratio in zip(dim_pairs, stage_kernel_stride_pad, num_layers, ff_expansion, heads, reduction_ratio):
+            get_overlap_patches = nn.Unfold(kernel, stride = stride, padding = padding)
+            overlap_patch_embed = nn.Conv2d(dim_in * kernel ** 2, dim_out, 1)
+
+            layers = nn.ModuleList([])
+
+            for _ in range(num_layers):
+                layers.append(nn.ModuleList([
+                    PreNorm(dim_out, EfficientSelfAttention(dim = dim_out, heads = heads, reduction_ratio = reduction_ratio)),
+                    PreNorm(dim_out, MixFeedForward(dim = dim_out, expansion_factor = ff_expansion)),
+                ]))
+
+            self.stages.append(nn.ModuleList([
+                get_overlap_patches,
+                overlap_patch_embed,
+                layers
+            ]))
+
+    def forward(
+        self,
+        x,
+        return_layer_outputs = False
+    ):
+        h, w = x.shape[-2:]
+
+        layer_outputs = []
+        for (get_overlap_patches, overlap_embed, layers) in self.stages:
+            x = get_overlap_patches(x)
+
+            num_patches = x.shape[-1]
+            ratio = int(sqrt((h * w) / num_patches))
+            x = rearrange(x, 'b c (h w) -> b c h w', h = h // ratio)
+
+            x = overlap_embed(x)
+            for (attn, ff) in layers:
+                x = attn(x) + x
+                x = ff(x) + x
+
+            layer_outputs.append(x)
+
+        ret = x if not return_layer_outputs else layer_outputs
+        return ret
+
+class Segformer(nn.Module):
+    # link to paper: https://arxiv.org/abs/2105.15203
+    def __init__(
+            self,
+            *,
+            dims=(32, 64, 160, 256), # changable
+            heads=(1, 2, 5, 8),  # fixed
+            ff_expansion=(8, 8, 4, 4),  # changable
+            reduction_ratio=(8, 4, 2, 1),  # fixed
+            num_layers=(2, 2, 2, 2),  # changable
+            channels=3,  # fixed
+            decoder_dim=256,  # changable
+            num_classes=1  # changable, according to the BCE or CE loss
+    ):
+        super().__init__()
+
+        # Cast values to tuples if they are not already
+        dims = cast_tuple(dims, 4)
+        heads = cast_tuple(heads, 4)
+        ff_expansion = cast_tuple(ff_expansion, 4)
+        reduction_ratio = cast_tuple(reduction_ratio, 4)
+        num_layers = cast_tuple(num_layers, 4)
+
+        assert all([*map(lambda t: len(t) == 4, (dims, heads, ff_expansion, reduction_ratio,
+                                                 num_layers))]), 'only four stages are allowed, all keyword arguments must be either a single value or a tuple of 4 values'
+
+        self.mit = MiT(
+            channels=channels,
+            dims=dims,
+            heads=heads,
+            ff_expansion=ff_expansion,
+            reduction_ratio=reduction_ratio,
+            num_layers=num_layers
+        )
+
+        self.to_fused = nn.ModuleList([nn.Sequential(
+            nn.Conv2d(dim, decoder_dim, 1),
+            nn.Upsample(scale_factor=2 ** i)
+        ) for i, dim in enumerate(dims)])
+
+        self.to_segmentation = nn.Sequential(
+            nn.Conv2d(4 * decoder_dim, decoder_dim, 1),
+            nn.Conv2d(decoder_dim, num_classes, 1),
+        )
+
+        # Upsampling: choose between bilinear, interpolation, or deconvolution
+        self.upsample = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
+        # self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
+
+    def forward(self, x):
+        layer_outputs = self.mit(x, return_layer_outputs=True)
+
+        fused = [to_fused(output) for output, to_fused in zip(layer_outputs, self.to_fused)]
+        fused = torch.cat(fused, dim=1)
+        seg_out = self.to_segmentation(fused)
+
+        return self.upsample(seg_out)
+
+def create_segformer(arch, channels=3, num_classes=1):
+    # for parameters, see: https://huggingface.co/docs/transformers/model_doc/segformer
+    architectures = {
+        'B0': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (32, 64, 160, 256), 'decoder_dim': 256},
+        'B1': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 256},
+        'B2': {'num_layers': (3, 3, 6, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+        'B3': {'num_layers': (3, 3, 18, 8), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+        'B4': {'num_layers': (3, 8, 27, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+        'B5': {'num_layers': (3, 6, 40, 3), 'ff_expansion': (4, 4, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+    }
+    arch_params = architectures[arch]
+    return Segformer(channels=channels, num_classes=num_classes,
+                     num_layers=arch_params['num_layers'],
+                     dims=arch_params['dims'],
+                     ff_expansion=arch_params['ff_expansion'],
+                     decoder_dim=arch_params['decoder_dim'])
+
 def test():
     # Create a random input tensor of size (3, 1, 161, 161) - 3 images, 1 channel, 161x161 pixels
-    x = torch.randn((3, 1, 416, 416))
-    model = UNET(in_channels=1, out_channels=1)
+    x = torch.randn((3, 3, 416, 416))
+    # Create a Segformer model with the B0 architecture
+    model = create_segformer('B0', channels=3, num_classes=1)
     preds = model(x)
-    print(preds.shape)
+    print(f'Output shape:{preds.shape}')
     # Check if output shape matches input shape
-    assert preds.shape == x.shape
+    assert preds.shape == torch.randn((3, 1, 416, 416)).shape
 
 if __name__ == "__main__":
     test()

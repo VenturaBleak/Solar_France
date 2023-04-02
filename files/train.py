@@ -57,7 +57,12 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         # update tqdm loop
         loop.set_postfix(loss=f"{loss.item():.4f}")
 
-        # update learning rate
+        # step scheduer on batch
+        if scheduler.is_batch == True:
+            scheduler.step()
+
+    # step scheduler on epoch
+    if scheduler.is_batch == False:
         scheduler.step()
 
     # calculate average epoch loss
