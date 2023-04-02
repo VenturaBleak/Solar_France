@@ -1,7 +1,8 @@
 import torch
 from tqdm import tqdm
+import pytorch_warmup
 
-def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch):
+def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, warmup_scheduler, device, epoch):
     """Train function for training the model
 
     :param loader   (torch.utils.data.DataLoader): training dataloader
@@ -57,15 +58,11 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         # update tqdm loop
         loop.set_postfix(loss=f"{loss.item():.4f}")
 
+        with warmup_scheduler.dampening():
+            scheduler.step()
+
     # calculate average epoch loss
     avg_epoch_loss = epoch_loss / num_batches
-
-    # if scheduler is reduce on plateau, update learning rate on average epoch loss
-    if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-        scheduler.step(avg_epoch_loss)
-    else:
-        # update learning rate
-        scheduler.step()
 
     # update tqdm loop
     loop.set_postfix(loss=f"{avg_epoch_loss:.4f}")

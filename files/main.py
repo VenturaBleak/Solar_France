@@ -1,10 +1,12 @@
 import os
 import time
+import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from model import UNET
+import pytorch_warmup as warmup
 from dataset import (FranceSegmentationDataset,
                      create_train_val_splits,
                      apply_train_transforms,
@@ -27,7 +29,7 @@ def main():
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
     NUM_EPOCHS = 200
@@ -71,58 +73,24 @@ def main():
     masks = sorted(os.listdir(mask_dir))
     check_dimensions(image_dir, mask_dir, images, masks)
 
-
-    # Define the train and validation directories under the current working directory
+    ############################
+    # Train and validation splits
+    ############################
     train_images, train_masks, val_images, val_masks = create_train_val_splits(image_dir,
                                                                                mask_dir,
                                                                                val_size=0.1,
                                                                                random_state=RANDOM_SEED)
 
+    ############################
+    # Transforms
+    ############################
     train_transforms = transforms.Lambda(apply_train_transforms)
     val_transforms = transforms.Lambda(apply_val_transforms)
 
 
     ############################
-    # Model & Loss function
-    ############################
-    # instantiate model
-    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
-    loss_fn = nn.BCEWithLogitsLoss()
-
-    ############################
-    # Optimizer
-    ############################
-    # Adam optimizer
-    WEIGHT_DECAY = 1e-4
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, eps=1e-8, weight_decay=WEIGHT_DECAY)
-
-    # SGD optimizer with momentum and weight decay
-    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=1e-4)
-
-    ############################
-    # Scheduler
-    ############################
-    # Cosine annealing scheduler
-    # T_max = int(NUM_EPOCHS/4) # The number of epochs or iterations to complete one cosine annealing cycle.
-    # eta_min = 1e-7 # The minimum learning rate at the end of each cycle
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
-    #                                                        T_max=T_max,
-    #                                                        eta_min=eta_min)
-
-    # ReduceLROnPlateau scheduler
-    FACTOR = 0.2
-    PATIENCE = 10
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
-                                                           mode='min',
-                                                           factor=FACTOR,
-                                                           patience=PATIENCE,
-                                                           verbose=True,
-                                                           min_lr=1e-8)
-
-    ############################
     # Data Loaders
     ############################
-    # get train and validation loaders
     train_loader, val_loader = get_loaders(
         image_dir=image_dir,
         mask_dir=mask_dir,
@@ -136,6 +104,71 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
     )
+    num_batches = len(train_loader)
+
+    ############################
+    # Model & Loss function
+    ############################
+    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
+    loss_fn = nn.BCEWithLogitsLoss()
+
+    ############################
+    # Optimizer
+    ############################
+    # Adam optimizer
+    WEIGHT_DECAY = 1e-4 # (0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+
+    # # Adam" optimizer
+    # WEIGHT_DECAY = 1e-2 # (0.01)
+    # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+
+    # SGD optimizer with momentum and weight decay
+    # momentum = 0.9
+    # WEIGHT_DECAY = 1e-5
+    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
+
+    ############################
+    # Scheduler
+    ############################
+
+    # Cosine annealing scheduler
+    T_MAX = len(train_loader)*NUM_EPOCHS # The number of epochs or iterations to complete one cosine annealing cycle.
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
+                                                           T_max=T_MAX,
+                                                           eta_min=LEARNING_RATE * 1e-5,
+                                                           verbose=False)
+
+    # Warmup scheduler
+    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer) # to get lr, use optimizer optimizer.param_groups[0]['lr']
+
+    # Cosine annealing with warm restarts scheduler
+    # T_0 = len(train_loader)*5 # The number of epochs or iterations to complete one cosine annealing cycle.
+    # T_MULT = 1.1
+    # torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+    #                                                      T_0 = T_0,
+    #                                                      T_mult=1,
+    #                                                      eta_min=LEARNING_RATE * 1e-4,
+    #                                                      verbose=True)
+
+    # # Polynomial learning rate scheduler
+    # MAX_EPOCHS = len(train_loader)
+    # POLY_POWER = 2
+    # scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer=optimizer,
+    #                                                     max_iter=MAX_EPOCHS,
+    #                                                     power=POLY_POWER)
+
+    # ReduceLROnPlateau scheduler
+    # FACTOR = 0.2
+    # PATIENCE = 10
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer,
+    #                                                        mode='min',
+    #                                                        factor=FACTOR,
+    #                                                        patience=PATIENCE,
+    #                                                        verbose=True,
+    #                                                        min_lr=1e-8)
+
 
     ############################
     # Visualize sample images
@@ -175,10 +208,13 @@ def main():
 
     # train the model
     for epoch in range(NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, warmup_scheduler, device=DEVICE, epoch=epoch)
+
 
         # validation
-        calculate_binary_metrics(val_loader, model, device=DEVICE)
+        avg_metrics = calculate_binary_metrics(val_loader, model, device=DEVICE)
+        pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = avg_metrics
+        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{math.floor(optimizer.param_groups[0]['lr']*1e10)/1e10}")
 
         # save model and sample predictions
         if DEVICE == "cuda" and epoch % 5 == 0:
