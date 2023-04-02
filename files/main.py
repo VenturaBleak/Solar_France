@@ -143,7 +143,7 @@ def main():
             if self.last_epoch < self.warmup_steps:
                 return [base_lr * self.last_epoch / self.warmup_steps for base_lr in self.base_lrs]
             else:
-                return self.cosine_annealing_scheduler.get_lr()
+                return self.cosine_annealing_scheduler.get_last_lr()
 
     # Cosine annealing scheduler
     WARMUP_STEPS = int(NUM_EPOCHS * len(train_loader) * WARMUP_FRACTION)
@@ -187,28 +187,28 @@ def main():
     ############################
     # Visualize sample images
     ############################
+    if DEVICE != "cuda":
+        # visualize some sample images
+        import matplotlib.pyplot as plt
+        import numpy as np
 
-    # visualize some sample images
-    import matplotlib.pyplot as plt
-    import numpy as np
+        images, masks = next(iter(train_loader))
+        n_samples = BATCH_SIZE // 2
 
-    images, masks = next(iter(train_loader))
-    n_samples = BATCH_SIZE // 2
+        # Create a figure with multiple subplots
+        fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
 
-    # Create a figure with multiple subplots
-    fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
+        # Iterate over the images and masks and plot them side by side
+        for i in range(n_samples):
+            img = np.transpose(images[i].numpy(), (1, 2, 0))
+            mask = np.squeeze(masks[i].numpy(), axis=0)
 
-    # Iterate over the images and masks and plot them side by side
-    for i in range(n_samples):
-        img = np.transpose(images[i].numpy(), (1, 2, 0))
-        mask = np.squeeze(masks[i].numpy(), axis=0)
-
-        axs[i, 0].axis("off")
-        axs[i, 0].imshow(img)
-        axs[i, 1].axis("off")
-        axs[i, 1].imshow(mask, cmap="gray")
-    plt.show()
-    # exit()
+            axs[i, 0].axis("off")
+            axs[i, 0].imshow(img)
+            axs[i, 1].axis("off")
+            axs[i, 1].imshow(mask, cmap="gray")
+        plt.show()
+        # exit()
 
     ############################
     # Training
@@ -228,7 +228,7 @@ def main():
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, device=DEVICE)
         pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = avg_metrics
-        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{math.floor(optimizer.param_groups[0]['lr']*1e10)/1e10}")
+        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{math.floor(scheduler*1e10)/1e10}")
 
         # save model and sample predictions
         if DEVICE == "cuda" and epoch % 5 == 0:
@@ -249,7 +249,6 @@ def main():
     end_time = time.time()
     # print total training time in hours, minutes, seconds
     print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
-
 
 if __name__ == "__main__":
     main()
