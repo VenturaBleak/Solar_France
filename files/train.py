@@ -26,19 +26,19 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
     num_batches = len(loader)
 
     # iterate over batches
-    for batch_idx, (data, targets) in enumerate(loop):
+    for batch_idx, (X, y) in enumerate(loop):
         # move data to device
-        data = data.to(device)
+        X = X.to(device)
 
         # move targets to device, convert to float and unsqueeze
-        targets = targets.float().unsqueeze(1).to(device)
+        y = y.float().to(device)
 
         # forward using autocast, which allows for mixed precision, i.e. half precision -> speed up training process
         with torch.cuda.amp.autocast():
             # forward pass
-            predictions = model(data)
+            preds = model(X)
             # calculate loss
-            loss = loss_fn(predictions, targets.squeeze(1))
+            loss = loss_fn(preds, y)
 
         # zero out gradients
         optimizer.zero_grad()

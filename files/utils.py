@@ -159,11 +159,11 @@ def calculate_binary_metrics(loader, model, loss_fn, device="cuda"):
     epoch_loss = 0
 
     with torch.no_grad():
-        for x, y in loader:
-            x = x.to(device)
-            y = y.to(device)
-            preds = model(x)
-            loss = loss_fn(preds, y.squeeze(1))
+        for X, y in loader:
+            X = X.to(device)
+            y = y.float().to(device)
+            preds = model(X)
+            loss = loss_fn(preds, y)
             preds = torch.sigmoid(preds)
             preds = (preds > 0.5).float()
 
