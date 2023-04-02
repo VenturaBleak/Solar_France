@@ -94,7 +94,7 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()
 
-def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda", epoch=0, unnorm=None):
+def save_predictions_as_imgs(loader, model, epoch, unnorm, folder="saved_images/", device="cuda", ):
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)

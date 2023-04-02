@@ -283,7 +283,7 @@ def main():
 
     # train the model
     for epoch in range(NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch.copy())
 
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
@@ -291,7 +291,7 @@ def main():
         print(f"Val.Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
 
         # save model and sample predictions
-        if DEVICE == "cuda" and epoch % 5 == 0:
+        if DEVICE == "cuda" and epoch.copy() % 5 == 0:
             # save model
             checkpoint = {
                 "state_dict": model.state_dict(),
@@ -301,7 +301,7 @@ def main():
 
             # save some examples to a folder
             save_predictions_as_imgs(
-                val_loader, model, folder="saved_images/", device=DEVICE, epoch=epoch, unnorm=unorm)
+                val_loader, model, epoch=epoch.copy(), unnorm=unorm, folder="saved_images/", device=DEVICE)
 
     print("All epochs completed.")
 
