@@ -114,7 +114,7 @@ def main():
 
     # Segformer
     if DEVICE == "cuda":
-        segformer_arch = 'B3'
+        segformer_arch = 'B1'
     else:
         segformer_arch = 'B0'
     model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
