@@ -99,7 +99,7 @@ def main():
         train_masks=train_masks,
         val_images=val_images,
         val_masks=val_masks,
-        batch_size=BATCH_SIZE,
+        batch_size=64,
         train_transforms=train_transforms,
         val_transforms=val_transforms,
         num_workers=NUM_WORKERS,
@@ -145,7 +145,7 @@ def main():
 
     # Segformer
     if DEVICE == "cuda":
-        segformer_arch = 'B5'
+        segformer_arch = 'B0'
     else:
         segformer_arch = 'B0'
     # also, experiment with bilinear interpolation on or off -> final upsamplin layer of the model
@@ -203,7 +203,7 @@ def main():
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler
     T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
-    print('Cosing Annealing with Warm Restarts scheduler - batches in T_0: ', T_0)
+    print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
     T_MULT = 2
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
                                                                      T_0 = T_0,
@@ -215,7 +215,7 @@ def main():
     # Polynomial learning rate scheduler
     # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
     # MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
-    # print('Polynomial learning rate scheduler - MAX_Iter (iterations until decay): ', MAX_ITER)
+    # print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
     # POLY_POWER = 2.0
     # scheduler = PolynomialLRDecay(optimizer=optimizer,
     #                               max_decay_steps=MAX_ITER, # when to stop decay
@@ -229,17 +229,17 @@ def main():
     if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
             or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
         WARMUP_EPOCHS = WARMUP_EPOCHS * len(train_loader)
-        print("Warmup Batches: ", WARMUP_EPOCHS)
+        print("Number of Warmup Batches: ", WARMUP_EPOCHS)
         IS_BATCH = True
     else:
         IS_BATCH = False
-        print("Warmup Epochs: ", WARMUP_EPOCHS)
+        print("Number of Warmup Epochs: ", WARMUP_EPOCHS)
 
     # GradualWarmupScheduler
     scheduler = GradualWarmupScheduler(optimizer,
-                                      multiplier=1,
-                                      total_epoch=WARMUP_EPOCHS, # when to stop warmup
-                                      after_scheduler=scheduler,
+                                       multiplier=1,
+                                       total_epoch=WARMUP_EPOCHS, # when to stop warmup
+                                       after_scheduler=scheduler,
                                        is_batch = IS_BATCH)
 
     ############################
