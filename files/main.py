@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
-from model import UNET
+from model import UNET, Segformer
 import pytorch_warmup as warmup
 from dataset import (FranceSegmentationDataset,
                      create_train_val_splits,
@@ -109,14 +109,15 @@ def main():
     ############################
     # Model & Loss function
     ############################
-    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
+    # model = UNET(in_channels=3, out_channels=1).to(DEVICE)
+    model = Segformer(channels=3, num_classes=1).to(DEVICE)
     loss_fn = nn.BCEWithLogitsLoss()
 
     ############################
     # Optimizer
     ############################
     # Adam optimizer
-    WEIGHT_DECAY = 1e-4 # (0.0001)
+    WEIGHT_DECAY = 0
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # # Adam" optimizer
@@ -182,7 +183,7 @@ def main():
             axs[i, 1].axis("off")
             axs[i, 1].imshow(mask, cmap="gray")
         plt.show()
-        exit("Visualized sample images.")
+        # exit("Visualized sample images.")
 
     ############################
     # Training
@@ -201,7 +202,7 @@ def main():
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
         pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
-        print(f"Performance on Val.Set: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Val.Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
+        print(f"Val.Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
 
         # save model and sample predictions
         if DEVICE == "cuda" and epoch % 5 == 0:
