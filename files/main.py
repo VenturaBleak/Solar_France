@@ -99,7 +99,7 @@ def main():
         train_masks=train_masks,
         val_images=val_images,
         val_masks=val_masks,
-        batch_size=16,
+        batch_size=BATCH_SIZE,
         train_transforms=train_transforms,
         val_transforms=val_transforms,
         num_workers=NUM_WORKERS,
