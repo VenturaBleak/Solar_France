@@ -133,12 +133,12 @@ def main():
     ############################
     # Cosine annealing with warm restarts scheduler
     T_0 =  int((len(train_loader) * NUM_EPOCHS)/10) # The number of epochs or iterations to complete one cosine annealing cycle.
-    T_MULT = 1.2
+    T_MULT = 2
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                                         T_0 = T_0,
-                                                         T_mult=T_MULT,
-                                                         eta_min=LEARNING_RATE * 1e-4,
-                                                         verbose=True)
+                                                                     T_0 = T_0,
+                                                                     T_mult=T_MULT,
+                                                                     eta_min=LEARNING_RATE * 1e-4,
+                                                                     verbose=False)
 
     # # Polynomial learning rate scheduler
     # MAX_EPOCHS = len(train_loader)
