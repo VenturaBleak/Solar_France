@@ -32,7 +32,8 @@ def main():
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 10
+    WARMUP_FRACTION = 0.1
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -131,16 +132,30 @@ def main():
     ############################
     # Scheduler
     ############################
+    # Custom combined scheduler
+    class CombinedScheduler(torch.optim.lr_scheduler._LRScheduler):
+        def __init__(self, optimizer, warmup_steps, cosine_annealing_scheduler, last_epoch=-1):
+            self.warmup_steps = warmup_steps
+            self.cosine_annealing_scheduler = cosine_annealing_scheduler
+            super().__init__(optimizer, last_epoch)
+
+        def get_lr(self):
+            if self.last_epoch < self.warmup_steps:
+                return [base_lr * self.last_epoch / self.warmup_steps for base_lr in self.base_lrs]
+            else:
+                return self.cosine_annealing_scheduler.get_lr()
 
     # Cosine annealing scheduler
-    T_MAX = len(train_loader)*NUM_EPOCHS # The number of epochs or iterations to complete one cosine annealing cycle.
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
-                                                           T_max=T_MAX,
-                                                           eta_min=LEARNING_RATE * 1e-5,
-                                                           verbose=False)
+    WARMUP_STEPS = int(NUM_EPOCHS * len(train_loader) * WARMUP_FRACTION)
+    T_MAX = (len(train_loader) * NUM_EPOCHS) - WARMUP_STEPS
+    cosine_annealing_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer,
+                                                                T_max=T_MAX,
+                                                                eta_min=LEARNING_RATE * 1e-5,
+                                                                verbose=False,
+                                                                last_epoch=-1)
 
-    # Warmup scheduler
-    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer) # to get lr, use optimizer optimizer.param_groups[0]['lr']
+    # Combined scheduler
+    scheduler = CombinedScheduler(optimizer, WARMUP_STEPS, cosine_annealing_scheduler)
 
     # Cosine annealing with warm restarts scheduler
     # T_0 = len(train_loader)*5 # The number of epochs or iterations to complete one cosine annealing cycle.
@@ -207,7 +222,7 @@ def main():
 
     # train the model
     for epoch in range(NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, warmup_scheduler, device=DEVICE, epoch=epoch)
+        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
 
 
         # validation
