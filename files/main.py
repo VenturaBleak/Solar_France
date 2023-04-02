@@ -118,7 +118,6 @@ def main():
     # Adam optimizer
     WEIGHT_DECAY = 1e-4 # (0.0001)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
     # # Adam" optimizer
     # WEIGHT_DECAY = 1e-2 # (0.01)
