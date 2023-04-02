@@ -244,17 +244,18 @@ class MiT(nn.Module):
         return ret
 
 class Segformer(nn.Module):
+    # link to paper: https://arxiv.org/abs/2105.15203
     def __init__(
             self,
             *,
-            dims=(32, 64, 160, 256),
-            heads=(1, 2, 5, 8),
-            ff_expansion=(8, 8, 4, 4),
-            reduction_ratio=(8, 4, 2, 1),
-            num_layers=2,
-            channels=3,
-            decoder_dim=256,
-            num_classes=4
+            dims=(32, 64, 160, 256), # changable
+            heads=(1, 2, 5, 8),  # fixed
+            ff_expansion=(8, 8, 4, 4),  # changable
+            reduction_ratio=(8, 4, 2, 1),  # fixed
+            num_layers=(2, 2, 2, 2),  # changable
+            channels=3,  # fixed
+            decoder_dim=256,  # fixed
+            num_classes=1  # changable, according to the BCE or CE loss
     ):
         super().__init__()
 
@@ -297,15 +298,27 @@ class Segformer(nn.Module):
         seg_out = self.to_segmentation(fused)
         return self.upsample(seg_out)
 
+def create_segformer(arch, channels=3, num_classes=1):
+    architectures = {
+        'B0': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (32, 64, 160, 256)},
+        'B1': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
+        'B2': {'num_layers': (3, 3, 6, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
+        'B3': {'num_layers': (3, 3, 18, 8), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
+        'B4': {'num_layers': (3, 8, 27, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
+        'B5': {'num_layers': (3, 6, 40, 3), 'ff_expansion': (4, 4, 4, 4), 'dims': (64, 128, 320, 512)},
+    }
+    arch_params = architectures[arch]
+    return Segformer(channels=channels, num_classes=num_classes, num_layers=arch_params['num_layers'], dims=arch_params['dims'], ff_expansion=arch_params['ff_expansion'])
+
 def test():
     # Create a random input tensor of size (3, 1, 161, 161) - 3 images, 1 channel, 161x161 pixels
-    x = torch.randn((3, 1, 416, 416))
-    # model = UNET(in_channels=1, out_channels=1)
-    model = Segformer(channels=1, num_classes=1)
+    x = torch.randn((3, 3, 416, 416))
+    # Create a Segformer model with the B0 architecture
+    model = create_segformer('B0', channels=3, num_classes=1)
     preds = model(x)
-    print(preds.shape)
+    print(f'Output shape:{preds.shape}')
     # Check if output shape matches input shape
-    assert preds.shape == x.shape
+    assert preds.shape == torch.randn((3, 1, 416, 416)).shape
 
 if __name__ == "__main__":
     test()

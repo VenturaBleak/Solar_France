@@ -233,6 +233,10 @@ class BinaryMetrics():
         #     A measure of the balance between precision and recall.
         #     Intuition: A higher F1 score means better overlap between the predicted segmentation and the ground truth segmentation.
         f1_score = 2 * (precision * recall) / (precision + recall + self.eps)
+
+        #     Background Accuracy: TN / (TN + FP)
+        #     The proportion of true negative pixels (correctly classified background pixels) out of all TN and FP pixels.
+        #     Intuition: A higher specificity means better identification of the background class.
         bg_acc = tn / (tn + fp + self.eps)
 
         return pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc

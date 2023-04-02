@@ -5,8 +5,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
-from model import UNET, Segformer
-import pytorch_warmup as warmup
+from torchinfo import summary
+from model import UNET, Segformer, create_segformer
 from dataset import (FranceSegmentationDataset,
                      create_train_val_splits,
                      apply_train_transforms,
@@ -109,8 +109,22 @@ def main():
     ############################
     # Model & Loss function
     ############################
+    # UNET
     # model = UNET(in_channels=3, out_channels=1).to(DEVICE)
-    model = Segformer(channels=3, num_classes=1).to(DEVICE)
+
+    # Segformer
+    if DEVICE == "cuda":
+        segformer_arch = 'B3'
+    else:
+        segformer_arch = 'B0'
+    model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
+
+    # model summary
+    summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
+
+    ############################
+    # Loss function
+    ############################
     loss_fn = nn.BCEWithLogitsLoss()
 
     ############################
