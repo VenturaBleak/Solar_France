@@ -4,6 +4,7 @@ import torchvision
 from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
 import os
+import torch.nn.functional as F
 
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("=> Saving checkpoint")
@@ -101,6 +102,7 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
 
     # set model to eval mode
     model.eval()
+    all_images = []
     for idx, (x, y) in enumerate(loader):
         x = x.to(device=device)
         with torch.no_grad():
@@ -121,13 +123,16 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
 
         # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
         combined = torch.cat((x, y, preds), dim=3)
+        all_images.append(combined)
 
-        # Save the combined image
-        torchvision.utils.save_image(combined, f"{folder}/Epoch_{epoch:08d}.png")
-
-        # Break after the first batch
+        # Break after the third batch
         if idx == 2:
             break
+
+    # Stack all images vertically
+    stacked_images = torch.cat(all_images, dim=2)
+    # Save the stacked images
+    torchvision.utils.save_image(stacked_images, f"{folder}/Epoch_{epoch:08d}.png")
 
     # Set the model back to train mode
     model.train()
@@ -249,3 +254,25 @@ class BinaryMetrics():
                       dtype=torch.float),
             y_pred)
         return [pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc]
+
+
+# PyTorch
+class DiceBCELoss(nn.Module):
+    # link: https://www.kaggle.com/code/bigironsphere/loss-function-library-keras-pytorch#Usage-Tips
+    def __init__(self, weight=None, size_average=True):
+        super(DiceBCELoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1):
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        inputs = F.sigmoid(inputs)
+
+        # flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+
+        intersection = (inputs * targets).sum()
+        dice_loss = 1 - (2. * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+        BCE = F.binary_cross_entropy(inputs, targets, reduction='mean')
+        Dice_BCE = BCE + dice_loss
+
+        return Dice_BCE

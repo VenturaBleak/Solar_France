@@ -84,15 +84,17 @@ class UNET(nn.Module):
         # Apply final 1x1 convolution to produce output
         return self.final_conv(x)
 
+#######################
+# Segformer
+#######################
+
 from math import sqrt
-import torch
-from torch import nn, einsum
+from torch import einsum
 import torch.nn.functional as F
 from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
 
 # helpers
-
 def exists(val):
     return val is not None
 
@@ -100,7 +102,6 @@ def cast_tuple(val, depth):
     return val if isinstance(val, tuple) else (val,) * depth
 
 # classes
-
 class DsConv2d(nn.Module):
     def __init__(self, dim_in, dim_out, kernel_size, padding, stride = 1, bias = True):
         super().__init__()
@@ -288,6 +289,8 @@ class Segformer(nn.Module):
             nn.Conv2d(decoder_dim, num_classes, 1),
         )
 
+        self.upsample = nn.Upsample(size=(416, 416), mode='bilinear', align_corners=False)
+
     def forward(self, x):
         layer_outputs = self.mit(x, return_layer_outputs=True)
 
@@ -295,9 +298,7 @@ class Segformer(nn.Module):
         fused = torch.cat(fused, dim=1)
         seg_out = self.to_segmentation(fused)
 
-        # upsampling to the original size
-        x = nn.functional.interpolate(x, size=(x.shape[2] * 4, x.shape[3] * 4), mode='bilinear', align_corners=False)
-        return x
+        return self.upsample(seg_out)
 
 def create_segformer(arch, channels=3, num_classes=1):
     architectures = {

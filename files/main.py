@@ -21,7 +21,8 @@ from utils import (
     get_loaders,
     check_accuracy,
     save_predictions_as_imgs,
-    calculate_binary_metrics
+    calculate_binary_metrics,
+    DiceBCELoss
 )
 
 def main():
@@ -40,7 +41,6 @@ def main():
     IMAGE_HEIGHT = 416  # 400 originally
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
-    LOAD_MODEL = False
 
     ############################
     # Script
@@ -125,7 +125,8 @@ def main():
     ############################
     # Loss function
     ############################
-    loss_fn = nn.BCEWithLogitsLoss()
+    # loss_fn = nn.BCEWithLogitsLoss()
+    loss_fn = DiceBCELoss()
 
     ############################
     # Optimizer
@@ -135,6 +136,7 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # # Adam" optimizer
+
     # WEIGHT_DECAY = 1e-2 # (0.01)
     # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
