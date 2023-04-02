@@ -145,7 +145,7 @@ def main():
 
     # Segformer
     if DEVICE == "cuda":
-        segformer_arch = 'B0'
+        segformer_arch = 'B5'
     else:
         segformer_arch = 'B0'
     # also, experiment with bilinear interpolation on or off -> final upsamplin layer of the model
@@ -245,32 +245,31 @@ def main():
     ############################
     # Visualize sample images
     ############################
-    if DEVICE != "cuda":
-        # visualize some sample images
-        import matplotlib.pyplot as plt
-        import numpy as np
+    # visualize some sample images
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-        images, masks = next(iter(train_loader))
-        n_samples = BATCH_SIZE // 2
+    images, masks = next(iter(train_loader))
+    n_samples = BATCH_SIZE // 2
 
-        # Create a figure with multiple subplots
-        fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
+    # Create a figure with multiple subplots
+    fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
 
-        # unnormalize
-        unorm = UnNormalize(mean=tuple(mean.numpy()), std=(tuple(std.numpy())))
+    # unnormalize
+    unorm = UnNormalize(mean=tuple(mean.numpy()), std=(tuple(std.numpy())))
 
-        # Iterate over the images and masks and plot them side by side
-        for i in range(n_samples):
-            img = unorm(images[i].squeeze(0))
-            img = np.transpose(img.numpy(), (1, 2, 0))
-            mask = np.squeeze(masks[i].numpy(), axis=0)
+    # Iterate over the images and masks and plot them side by side
+    for i in range(n_samples):
+        img = unorm(images[i].squeeze(0))
+        img = np.transpose(img.numpy(), (1, 2, 0))
+        mask = np.squeeze(masks[i].numpy(), axis=0)
 
-            axs[i, 0].axis("off")
-            axs[i, 0].imshow(img)
-            axs[i, 1].axis("off")
-            axs[i, 1].imshow(mask, cmap="gray")
-        plt.show()
-        # exit("Visualized sample images.")
+        axs[i, 0].axis("off")
+        axs[i, 0].imshow(img)
+        axs[i, 1].axis("off")
+        axs[i, 1].imshow(mask, cmap="gray")
+    plt.show()
+    # exit("Visualized sample images.")
 
     ############################
     # Training

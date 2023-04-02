@@ -150,6 +150,8 @@ def apply_initial_transforms(img_mask):
     No random transformations are applied to the validation set.
     :param img_mask:
     :return: img, mask"""
+    print('Retrieving mean and std for Normalization')
+    
     img, mask = img_mask
 
     # Resize the image and mask
@@ -179,8 +181,8 @@ def get_mean_std(train_loader):
         train_std.append(batch_std)
     train_mean = torch.tensor(np.mean(train_mean, axis=0))
     train_std = torch.tensor(np.mean(train_std, axis=0))
+
     # convert mean and std to tuple
-    print('################# \n For Normalization')
     print('Mean of Training Images:', train_mean)
     print('Std Dev of Training Images:', train_std)
     return train_mean, train_std
