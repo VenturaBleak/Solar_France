@@ -57,7 +57,14 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         # update tqdm loop
         loop.set_postfix(loss=f"{loss.item():.4f}")
 
-        # update learning rate
+        # for cosine scheduler: update every batch
+        if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
+            or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
+            scheduler.step()
+
+    # for poly and step scheduler: update every epoch
+    if isinstance(scheduler, torch.optim.lr_scheduler.StepLR)\
+        or isinstance(scheduler, torch.optim.lr_scheduler._LRScheduler):
         scheduler.step()
 
     # calculate average epoch loss

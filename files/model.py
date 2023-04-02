@@ -8,6 +8,9 @@ import torch.nn.functional as F
 from einops import rearrange, reduce
 from einops.layers.torch import Rearrange
 
+# scheduler
+from torch.optim.lr_scheduler import _LRScheduler
+
 ####################
 # Loss functions
 ####################
@@ -108,7 +111,7 @@ class TverskyLoss(nn.Module):
 
     def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA):
         # comment out if your model contains a sigmoid or equivalent activation layer
-        inputs = F.sigmoid(inputs)
+        inputs = torch.sigmoid(inputs)
 
         # flatten label and prediction tensors
         inputs = inputs.view(-1)
@@ -123,6 +126,61 @@ class TverskyLoss(nn.Module):
 
         return 1 - Tversky
 
+####################
+# Schedulers
+####################
+# code taken from: https://github.com/cmpark0126/pytorch-polynomial-lr-decay/blob/master/torch_poly_lr_decay/torch_poly_lr_decay.py
+from torch.optim.lr_scheduler import _LRScheduler
+
+class PolynomialLRDecay(_LRScheduler):
+    """Polynomial learning rate decay until step reach to max_decay_step
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        max_decay_steps: after this step, we stop decreasing learning rate
+        end_learning_rate: scheduler stopping learning rate decay, value of learning rate must be this value
+        power: The power of the polynomial.
+    """
+
+    def __init__(self, optimizer, max_decay_steps, end_learning_rate=0.0001, power=1.0):
+        if max_decay_steps <= 1.:
+            raise ValueError('max_decay_steps should be greater than 1.')
+        self.max_decay_steps = max_decay_steps
+        self.end_learning_rate = end_learning_rate
+        self.power = power
+        self.last_step = 0
+
+        # Initialize the base class and get the initial learning rates
+        super().__init__(optimizer)
+
+        # Add the _last_lr attribute to store the last learning rate values
+        self._last_lr = self.get_lr()
+
+    def get_lr(self):
+        if self.last_step > self.max_decay_steps:
+            return [self.end_learning_rate for _ in self.base_lrs]
+
+        return [(base_lr - self.end_learning_rate) *
+                ((1 - self.last_step / self.max_decay_steps) ** (self.power)) +
+                self.end_learning_rate for base_lr in self.base_lrs]
+
+    def step(self, step=None):
+        if step is None:
+            step = self.last_step + 1
+        self.last_step = step if step != 0 else 1
+        if self.last_step <= self.max_decay_steps:
+            decay_lrs = [(base_lr - self.end_learning_rate) *
+                         ((1 - self.last_step / self.max_decay_steps) ** (self.power)) +
+                         self.end_learning_rate for base_lr in self.base_lrs]
+            for param_group, lr in zip(self.optimizer.param_groups, decay_lrs):
+                param_group['lr'] = lr
+
+            # Update the _last_lr attribute after updating learning rates
+            self._last_lr = decay_lrs
+
+    # Add the get_last_lr function to return the _last_lr attribute
+    def get_last_lr(self):
+        return self._last_lr
 
 ####################
 # Models
@@ -218,6 +276,8 @@ class UNET(nn.Module):
 #######################
 # Segformer
 #######################
+# code from: https://github.com/lucidrains/segformer-pytorch
+
 # helpers
 def exists(val):
     return val is not None
@@ -379,7 +439,7 @@ class Segformer(nn.Module):
             reduction_ratio=(8, 4, 2, 1),  # fixed
             num_layers=(2, 2, 2, 2),  # changable
             channels=3,  # fixed
-            decoder_dim=256,  # fixed
+            decoder_dim=256,  # changable
             num_classes=1  # changable, according to the BCE or CE loss
     ):
         super().__init__()
@@ -413,8 +473,8 @@ class Segformer(nn.Module):
             nn.Conv2d(decoder_dim, num_classes, 1),
         )
 
-        # Upsampling: choose between bilinear or deconvolution
-        self.upsample = nn.Upsample(size=(416, 416), mode='bilinear', align_corners=False)
+        # Upsampling: choose between bilinear, interpolation, or deconvolution
+        self.upsample = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
         # self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
 
     def forward(self, x):
@@ -427,16 +487,21 @@ class Segformer(nn.Module):
         return self.upsample(seg_out)
 
 def create_segformer(arch, channels=3, num_classes=1):
+    # for parameters, see: https://huggingface.co/docs/transformers/model_doc/segformer
     architectures = {
-        'B0': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (32, 64, 160, 256)},
-        'B1': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
-        'B2': {'num_layers': (3, 3, 6, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
-        'B3': {'num_layers': (3, 3, 18, 8), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
-        'B4': {'num_layers': (3, 8, 27, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512)},
-        'B5': {'num_layers': (3, 6, 40, 3), 'ff_expansion': (4, 4, 4, 4), 'dims': (64, 128, 320, 512)},
+        'B0': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (32, 64, 160, 256), 'decoder_dim': 256},
+        'B1': {'num_layers': (2, 2, 2, 2), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 256},
+        'B2': {'num_layers': (3, 3, 6, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+        'B3': {'num_layers': (3, 3, 18, 8), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+        'B4': {'num_layers': (3, 8, 27, 3), 'ff_expansion': (8, 8, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
+        'B5': {'num_layers': (3, 6, 40, 3), 'ff_expansion': (4, 4, 4, 4), 'dims': (64, 128, 320, 512), 'decoder_dim': 768},
     }
     arch_params = architectures[arch]
-    return Segformer(channels=channels, num_classes=num_classes, num_layers=arch_params['num_layers'], dims=arch_params['dims'], ff_expansion=arch_params['ff_expansion'])
+    return Segformer(channels=channels, num_classes=num_classes,
+                     num_layers=arch_params['num_layers'],
+                     dims=arch_params['dims'],
+                     ff_expansion=arch_params['ff_expansion'],
+                     decoder_dim=arch_params['decoder_dim'])
 
 def test():
     # Create a random input tensor of size (3, 1, 161, 161) - 3 images, 1 channel, 161x161 pixels
