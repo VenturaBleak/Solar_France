@@ -288,15 +288,16 @@ class Segformer(nn.Module):
             nn.Conv2d(decoder_dim, num_classes, 1),
         )
 
-        self.upsample = nn.Upsample(size=(416, 416), mode='bilinear', align_corners=True)
-
     def forward(self, x):
         layer_outputs = self.mit(x, return_layer_outputs=True)
 
         fused = [to_fused(output) for output, to_fused in zip(layer_outputs, self.to_fused)]
         fused = torch.cat(fused, dim=1)
         seg_out = self.to_segmentation(fused)
-        return self.upsample(seg_out)
+
+        # upsampling to the original size
+        x = nn.functional.interpolate(x, size=(x.shape[2] * 4, x.shape[3] * 4), mode='bilinear', align_corners=False)
+        return x
 
 def create_segformer(arch, channels=3, num_classes=1):
     architectures = {
