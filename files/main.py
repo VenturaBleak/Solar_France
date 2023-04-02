@@ -111,14 +111,14 @@ def main():
     # Model & Loss function
     ############################
     # UNET
-    model = UNET(in_channels=3, out_channels=1).to(DEVICE)
+    # model = UNET(in_channels=3, out_channels=1).to(DEVICE)
 
     # Segformer
-    # if DEVICE == "cuda":
-    #     segformer_arch = 'B1'
-    # else:
-    #     segformer_arch = 'B0'
-    # model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
+    if DEVICE == "cuda":
+        segformer_arch = 'B1'
+    else:
+        segformer_arch = 'B0'
+    model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
