@@ -145,9 +145,10 @@ def main():
 
     # Segformer
     if DEVICE == "cuda":
-        segformer_arch = 'B1'
+        segformer_arch = 'B0'
     else:
         segformer_arch = 'B0'
+    # also, experiment with bilinear interpolation on or off -> final upsamplin layer of the model
     model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
