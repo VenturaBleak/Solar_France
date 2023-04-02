@@ -13,9 +13,8 @@ from model import (UNET,
                    )
 from dataset import (FranceSegmentationDataset,
                      create_train_val_splits,
-                     apply_train_transforms,
-                     apply_val_transforms,
-                     set_image_dimensions)
+                     apply_train_transforms, apply_val_transforms, apply_initial_transforms,
+                     set_image_dimensions, set_mean_std, get_mean_std, UnNormalize)
 from train import train_fn
 from data_cleaning import remove_unmatched_files
 from image_size_check import check_dimensions
@@ -84,6 +83,34 @@ def main():
                                                                                mask_dir,
                                                                                val_size=0.1,
                                                                                random_state=RANDOM_SEED)
+
+    ############################
+    # Get mean and std of training set
+    ############################
+    # get simple transforms
+    train_transforms = transforms.Lambda(apply_initial_transforms)
+    val_transforms = transforms.Lambda(apply_initial_transforms)
+
+    # get train loader
+    train_loader, val_loader = get_loaders(
+        image_dir=image_dir,
+        mask_dir=mask_dir,
+        train_images=train_images,
+        train_masks=train_masks,
+        val_images=val_images,
+        val_masks=val_masks,
+        batch_size=BATCH_SIZE,
+        train_transforms=train_transforms,
+        val_transforms=val_transforms,
+        num_workers=NUM_WORKERS,
+        pin_memory=PIN_MEMORY,
+    )
+    # retrieve the mean and std of the training images
+    mean, std = get_mean_std(train_loader)
+
+    # pass on the mean and std to the dataset class
+    set_mean_std(mean, std)
+
 
     ############################
     # Transforms
@@ -228,9 +255,13 @@ def main():
         # Create a figure with multiple subplots
         fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
 
+        # unnormalize
+        unorm = UnNormalize(mean=tuple(mean.numpy()), std=(tuple(std.numpy())))
+
         # Iterate over the images and masks and plot them side by side
         for i in range(n_samples):
-            img = np.transpose(images[i].numpy(), (1, 2, 0))
+            img = unorm(images[i].squeeze(0))
+            img = np.transpose(img.numpy(), (1, 2, 0))
             mask = np.squeeze(masks[i].numpy(), axis=0)
 
             axs[i, 0].axis("off")
@@ -268,9 +299,9 @@ def main():
             }
             save_checkpoint(checkpoint)
 
-            # save some examples to a folder
-            save_predictions_as_imgs(
-                val_loader, model, folder="saved_images/", device=DEVICE, epoch=epoch)
+        # save some examples to a folder
+        save_predictions_as_imgs(
+            val_loader, model, folder="saved_images/", device=DEVICE, epoch=epoch, unnorm=unorm)
 
     print("All epochs completed.")
 

@@ -94,7 +94,7 @@ def check_accuracy(loader, model, device="cuda"):
     print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
     model.train()
 
-def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda", epoch=0):
+def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda", epoch=0, unnorm=None):
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -108,25 +108,29 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()
 
-        # Move x, y, and preds back to the CPU
-        x = x.cpu()
-        y = y.cpu()
-        preds = preds.cpu()
+            # Move x, y, and preds back to the CPU
+            x = x.cpu()
+            y = y.cpu()
+            preds = preds.cpu()
 
-        # Normalize the input image back to the range [0, 1]
-        x = (x - x.min()) / (x.max() - x.min())
+            # Unnormalize the input image
+            for i in range(x.size(0)):
+                x[i] = unnorm(x[i])
 
-        # Repeat the single channel of y and preds 3 times to match the number of channels in x
-        y = y.repeat(1, 3, 1, 1)
-        preds = preds.repeat(1, 3, 1, 1)
+            # Normalize the input image back to the range [0, 1]
+            x = (x - x.min()) / (x.max() - x.min())
 
-        # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
-        combined = torch.cat((x, y, preds), dim=3)
-        all_images.append(combined)
+            # Repeat the single channel of y and preds 3 times to match the number of channels in x
+            y = y.repeat(1, 3, 1, 1)
+            preds = preds.repeat(1, 3, 1, 1)
 
-        # Break after the third batch
-        if idx == 2:
-            break
+            # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
+            combined = torch.cat((x, y, preds), dim=3)
+            all_images.append(combined)
+
+            # Break after the third batch
+            if idx == 2:
+                break
 
     # Stack all images vertically
     stacked_images = torch.cat(all_images, dim=2)

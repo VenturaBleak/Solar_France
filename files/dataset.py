@@ -16,6 +16,13 @@ def set_image_dimensions(height, width):
     IMAGE_HEIGHT = height
     IMAGE_WIDTH = width
 
+def set_mean_std(mean, std):
+    # fetch the global variables, image_height and image_width from the main script
+    global train_mean
+    global train_std
+    train_mean = mean
+    train_std = std
+
 class FranceSegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, images, masks, transform=None):
         self.image_dir = image_dir
@@ -111,6 +118,9 @@ def apply_train_transforms(img_mask):
     img = transforms.ToTensor()(img)
     mask = transforms.ToTensor()(mask)
 
+    # Normalize the image
+    img = transforms.Normalize(mean=train_mean, std=train_std)(img)
+
     return img, mask
 
 def apply_val_transforms(img_mask):
@@ -129,4 +139,66 @@ def apply_val_transforms(img_mask):
     img = transforms.ToTensor()(img)
     mask = transforms.ToTensor()(mask)
 
+    # Normalize the image
+    img = transforms.Normalize(train_mean, train_std)(img)
+
     return img, mask
+
+def apply_initial_transforms(img_mask):
+    """Function to apply the transformations to be used for the validation set.
+    Only resizing and converting to tensor.
+    No random transformations are applied to the validation set.
+    :param img_mask:
+    :return: img, mask"""
+    img, mask = img_mask
+
+    # Resize the image and mask
+    img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
+    mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
+
+    # transform to tensor
+    img = transforms.ToTensor()(img)
+    mask = transforms.ToTensor()(mask)
+
+    return img, mask
+
+def get_mean_std(train_loader):
+    """Function to calculate the mean and standard deviation of the training set.
+    :param train_loader:
+    :return: mean, std"""
+    train_mean = []
+    train_std = []
+
+    for batch_idx, (X, y) in enumerate(train_loader):
+        numpy_image = X.numpy()
+
+        batch_mean = np.mean(numpy_image, axis=(0, 2, 3))
+        batch_std = np.std(numpy_image, axis=(0, 2, 3))
+
+        train_mean.append(batch_mean)
+        train_std.append(batch_std)
+    train_mean = torch.tensor(np.mean(train_mean, axis=0))
+    train_std = torch.tensor(np.mean(train_std, axis=0))
+    # convert mean and std to tuple
+    print('################# \n For Normalization')
+    print('Mean of Training Images:', train_mean)
+    print('Std Dev of Training Images:', train_std)
+    return train_mean, train_std
+
+class UnNormalize(object):
+    # link: https://discuss.pytorch.org/t/simple-way-to-inverse-transform-normalization/4821/3
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+
+    def __call__(self, tensor):
+        """
+        Args:
+            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
+        Returns:
+            Tensor: Normalized image.
+        """
+        for t, m, s in zip(tensor, self.mean, self.std):
+            t.mul_(s).add_(m)
+            # The normalize code -> t.sub_(m).div_(s)
+        return tensor
