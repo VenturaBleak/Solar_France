@@ -201,7 +201,7 @@ def main():
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
         pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
-        print(f"Performance on Validation set: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | ValLoss: {val_loss:.4f} | Learning Rate:{scheduler.get_last_lr()[0]:.1e}")
+        print(f"Performance on Val.Set: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Val.Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
 
         # save model and sample predictions
         if DEVICE == "cuda" and epoch % 5 == 0:
