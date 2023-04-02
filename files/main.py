@@ -32,7 +32,7 @@ def main():
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = 200
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -132,7 +132,7 @@ def main():
     # Scheduler
     ############################
     # Cosine annealing with warm restarts scheduler
-    T_0 =  int((len(train_loader) * NUM_EPOCHS)/10) # The number of epochs or iterations to complete one cosine annealing cycle.
+    T_0 =  int(len(train_loader) * (NUM_EPOCHS/30)) # The number of epochs or iterations to complete one cosine annealing cycle.
     T_MULT = 2
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
                                                                      T_0 = T_0,
@@ -202,7 +202,7 @@ def main():
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, device=DEVICE)
         pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = avg_metrics
-        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{math.floor(scheduler.get_lr()*1e10)/1e10}")
+        print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Learning Rate:{scheduler.get_lr()}")
 
         # save model and sample predictions
         if DEVICE == "cuda" and epoch % 5 == 0:
