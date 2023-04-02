@@ -123,10 +123,10 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
         combined = torch.cat((x, y, preds), dim=3)
 
         # Save the combined image
-        torchvision.utils.save_image(combined, f"{folder}/Epoch_{epoch}.png")
+        torchvision.utils.save_image(combined, f"{folder}/Epoch_{epoch:08d}.png")
 
         # Break after the first batch
-        if idx == 0:
+        if idx == 2:
             break
 
     # Set the model back to train mode
@@ -156,22 +156,28 @@ def calculate_binary_metrics(loader, model, device="cuda"):
 
     total_metrics = [0, 0, 0, 0, 0, 0, 0]
 
+    epoch_loss = 0
+
     with torch.no_grad():
         for x, y in loader:
             x = x.to(device)
             y = y.to(device)
-            preds = torch.sigmoid(model(x))
+            preds = model(x)
+            loss = loss_fn(preds, y.squeeze(1))
+            preds = torch.sigmoid(preds)
             preds = (preds > 0.5).float()
 
+            epoch_loss += loss.item()
             metrics = metrics_calculator(y, preds)
             total_metrics = [m + n for m, n in zip(total_metrics, metrics)]
 
+    # calculate average metrics
     num_batches = len(loader)
     avg_metrics = [metric / num_batches for metric in total_metrics]
 
-    # # print the eval metrics
-    # pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = avg_metrics
-    # print(f"F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f}")
+    # calculate average epoch loss
+    epoch_loss = epoch_loss / num_batches
+    avg_metrics.append(epoch_loss)
 
     model.train()
 

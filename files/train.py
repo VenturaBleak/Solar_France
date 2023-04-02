@@ -61,7 +61,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         scheduler.step()
 
     # calculate average epoch loss
-    avg_epoch_loss = epoch_loss / num_batches
+    epoch_loss = epoch_loss / num_batches
 
     # update tqdm loop
-    loop.set_postfix(loss=f"{avg_epoch_loss:.4f}")
+    loop.set_postfix(loss=f"{epoch_loss:.4f}")
