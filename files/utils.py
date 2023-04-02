@@ -132,7 +132,7 @@ def save_predictions_as_imgs(loader, model, folder="saved_images/", device="cuda
     # Set the model back to train mode
     model.train()
 
-def calculate_binary_metrics(loader, model, device="cuda"):
+def calculate_binary_metrics(loader, model, loss_fn, device="cuda"):
     """Calculate common metrics in binary cases.
     binary metrics: pixel accuracy, dice, precision, specificity, recall
     pixel accuracy = (TP + TN) / (TP + TN + FP + FN) -> intuition: how many pixels are correctly classified

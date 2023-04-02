@@ -198,9 +198,8 @@ def main():
     for epoch in range(NUM_EPOCHS):
         train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
 
-
         # validation
-        avg_metrics = calculate_binary_metrics(val_loader, model, device=DEVICE)
+        avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
         pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
         print(f"Performance on Validation set: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | ValLoss: {val_loss:.4f} | Learning Rate:{scheduler.get_last_lr()[0]:.1e}")
 
