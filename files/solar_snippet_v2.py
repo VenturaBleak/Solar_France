@@ -210,11 +210,11 @@ if __name__ == "__main__":
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
 
-    solar_image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'img')
-    solar_mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'mask')
+    solar_image_dir = os.path.join(parent_dir, 'data', 'France_google', 'images_positive')
+    solar_mask_dir = os.path.join(parent_dir, 'data', 'France_google', 'masks_positive')
 
-    building_image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'images')
-    building_mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'building_masks')
+    building_image_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
+    building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
 
     destination_dir = os.path.join(parent_dir, 'data', 'trial', 'modified')
 
