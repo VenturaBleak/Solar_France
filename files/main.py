@@ -16,7 +16,6 @@ from dataset import (FranceSegmentationDataset,
                      apply_train_transforms, apply_val_transforms, apply_initial_transforms,
                      set_image_dimensions, set_mean_std, get_mean_std, UnNormalize)
 from train import train_fn
-from data_cleaning import remove_unmatched_files
 from image_size_check import check_dimensions
 from utils import (
     save_checkpoint,
@@ -65,16 +64,8 @@ def main():
         image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
         mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
 
-    # remove unmatched images and masks
-    remove_unmatched_files(image_dir, mask_dir)
-
     # assert that the number of images and masks are equal
     assert len(os.listdir(image_dir)) == len(os.listdir(mask_dir))
-
-    # assert that dimensions of each image are equal
-    images = sorted(os.listdir(image_dir))
-    masks = sorted(os.listdir(mask_dir))
-    check_dimensions(image_dir, mask_dir, images, masks)
 
     ############################
     # Train and validation splits

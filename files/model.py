@@ -502,14 +502,14 @@ class Segformer(nn.Module):
     def __init__(
             self,
             *,
-            dims=(32, 64, 160, 256), # changable
+            dims=(32, 64, 160, 256), # changeable
             heads=(1, 2, 5, 8),  # fixed
-            ff_expansion=(8, 8, 4, 4),  # changable
+            ff_expansion=(8, 8, 4, 4),  # changeable
             reduction_ratio=(8, 4, 2, 1),  # fixed
-            num_layers=(2, 2, 2, 2),  # changable
+            num_layers=(2, 2, 2, 2),  # changeable
             channels=3,  # fixed
-            decoder_dim=256,  # changable
-            num_classes=1  # changable, according to the BCE or CE loss
+            decoder_dim=256,  # changeable
+            num_classes=1  # changeable, according to the BCE or CE loss
     ):
         super().__init__()
 
