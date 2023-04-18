@@ -582,7 +582,7 @@ def segformer_test():
     # Check if output shape matches input shape
     assert preds.shape == torch.randn((3, 1, 416, 416)).shape
 
-# ToDo: implement Unet Transformer
+# Potential idea: implement Unet-Transformer Model
 # https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/05321d644e4fed67d8b2856adc2f8585e79dfbee/labml_nn/diffusion/stable_diffusion/model/unet.py
 
 if __name__ == "__main__":
