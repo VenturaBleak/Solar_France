@@ -61,8 +61,8 @@ def main():
         mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'masks')
 
     else:
-        image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
-        mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
+        image_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'images')
+        mask_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'masks')
 
     # assert that the number of images and masks are equal
     assert len(os.listdir(image_dir)) == len(os.listdir(mask_dir))

@@ -572,7 +572,7 @@ def create_segformer(arch, channels=3, num_classes=1):
                      ff_expansion=arch_params['ff_expansion'],
                      decoder_dim=arch_params['decoder_dim'])
 
-def test():
+def segformer_test():
     # Create a random input tensor of size (3, 1, 161, 161) - 3 images, 1 channel, 161x161 pixels
     x = torch.randn((3, 3, 416, 416))
     # Create a Segformer model with the B0 architecture
@@ -581,6 +581,9 @@ def test():
     print(f'Output shape:{preds.shape}')
     # Check if output shape matches input shape
     assert preds.shape == torch.randn((3, 1, 416, 416)).shape
+
+# ToDo: implement Unet Transformer
+# https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/05321d644e4fed67d8b2856adc2f8585e79dfbee/labml_nn/diffusion/stable_diffusion/model/unet.py
 
 if __name__ == "__main__":
     test()

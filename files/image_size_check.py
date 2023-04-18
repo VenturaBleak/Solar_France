@@ -288,7 +288,7 @@ if __name__ == "__main__":
 
 
     # specify the dataset folders to check
-    dataset_folders = ['France_ign'] # 'Munich', 'France_ign', 'France_google', 'Denmark'
+    dataset_folders = ['Heerlen_2018_HR_output', 'ZL_2018_HR_output', 'France_ign','France_google', 'Munich', 'Denmark']
 
     # perform check dimensions
     check_dimensions_main(dataset_folders)

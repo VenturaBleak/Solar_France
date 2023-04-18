@@ -66,6 +66,26 @@ def create_train_val_splits(image_dir, mask_dir, val_size=0.2, random_state=42):
 
     return train_images, train_masks, val_images, val_masks
 
+def blackout_image(img, mask, center_height, center_width):
+    img_width, img_height = img.size
+    mask_width, mask_height = mask.size
+
+    # Create black images with the same dimensions as the input image and mask
+    black_image = Image.new('RGB', (img_width, img_height))
+    black_mask = Image.new('L', (mask_width, mask_height))
+
+    # Calculate the starting and ending positions for the center region
+    start_x = (img_width - center_width) // 2
+    start_y = (img_height - center_height) // 2
+    end_x = start_x + center_width
+    end_y = start_y + center_height
+
+    # Copy the center region from the input image and mask to the black images
+    black_image.paste(img.crop((start_x, start_y, end_x, end_y)), (start_x, start_y))
+    black_mask.paste(mask.crop((start_x, start_y, end_x, end_y)), (start_x, start_y))
+
+    return black_image, black_mask
+
 def apply_train_transforms(img_mask):
     """
     https://pytorch.org/vision/stable/auto_examples/plot_transforms.html#sphx-glr-auto-examples-plot-transforms-py
@@ -91,6 +111,10 @@ def apply_train_transforms(img_mask):
     ##############################
     # Augment both image and mask
     ##############################
+
+    # experimental: Blackout the image and mask except for the 200x200 center region
+    if random.random() < 0.5:
+        img, mask = blackout_image(img, mask, 200, 200)
 
     # Apply random horizontal and vertical flips
     if random.random() < 0.5:

@@ -216,7 +216,7 @@ if __name__ == "__main__":
     building_image_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
     building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
 
-    destination_dir = os.path.join(parent_dir, 'data', 'trial', 'modified')
+    destination_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'modified')
 
     # Get the first 10 solar image and mask filenames
     solar_image_files = sorted(os.listdir(solar_image_dir))[90:110]
