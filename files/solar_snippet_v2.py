@@ -210,19 +210,19 @@ if __name__ == "__main__":
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
 
-    solar_image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'img')
-    solar_mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'mask')
+    solar_image_dir = os.path.join(parent_dir, 'data', 'France_google', 'images_positive')
+    solar_mask_dir = os.path.join(parent_dir, 'data', 'France_google', 'masks_positive')
 
-    building_image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'images')
-    building_mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'TUM', 'building_masks')
+    building_image_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
+    building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
 
-    destination_dir = os.path.join(parent_dir, 'data', 'trial', 'modified')
+    destination_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'modified')
 
     # Get the first 10 solar image and mask filenames
-    solar_image_files = sorted(os.listdir(solar_image_dir))[99:110]
+    solar_image_files = sorted(os.listdir(solar_image_dir))[90:110]
 
     # Get the first 10 building image and mask filenames
-    building_image_files = sorted(os.listdir(building_image_dir))[12:13]
+    building_image_files = sorted(os.listdir(building_image_dir))[12:25]
 
     # time this process
     start = time.time()
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     for solar_image_file, building_image_file, in zip(
             solar_image_files, building_image_files
     ):
-        for i in range(20):
+        for i in range(1):
 
 
             source_image = Image.open(os.path.join(solar_image_dir, solar_image_file)).convert("RGB")

@@ -16,7 +16,6 @@ from dataset import (FranceSegmentationDataset,
                      apply_train_transforms, apply_val_transforms, apply_initial_transforms,
                      set_image_dimensions, set_mean_std, get_mean_std, UnNormalize)
 from train import train_fn
-from data_cleaning import remove_unmatched_files
 from image_size_check import check_dimensions
 from utils import (
     save_checkpoint,
@@ -62,19 +61,11 @@ def main():
         mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'masks')
 
     else:
-        image_dir = os.path.join(parent_dir, 'data', 'trial', 'images')
-        mask_dir = os.path.join(parent_dir, 'data', 'trial', 'masks')
-
-    # remove unmatched images and masks
-    remove_unmatched_files(image_dir, mask_dir)
+        image_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'images')
+        mask_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'masks')
 
     # assert that the number of images and masks are equal
     assert len(os.listdir(image_dir)) == len(os.listdir(mask_dir))
-
-    # assert that dimensions of each image are equal
-    images = sorted(os.listdir(image_dir))
-    masks = sorted(os.listdir(mask_dir))
-    check_dimensions(image_dir, mask_dir, images, masks)
 
     ############################
     # Train and validation splits
@@ -145,9 +136,10 @@ def main():
 
     # Segformer
     if DEVICE == "cuda":
-        segformer_arch = 'B1'
+        segformer_arch = 'B0'
     else:
         segformer_arch = 'B0'
+    # also, experiment with bilinear interpolation on or off -> final upsamplin layer of the model
     model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
@@ -202,7 +194,7 @@ def main():
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler
     T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
-    print('Cosing Annealing with Warm Restarts scheduler - batches in T_0: ', T_0)
+    print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
     T_MULT = 2
     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
                                                                      T_0 = T_0,
@@ -214,7 +206,7 @@ def main():
     # Polynomial learning rate scheduler
     # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
     # MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
-    # print('Polynomial learning rate scheduler - MAX_Iter (iterations until decay): ', MAX_ITER)
+    # print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
     # POLY_POWER = 2.0
     # scheduler = PolynomialLRDecay(optimizer=optimizer,
     #                               max_decay_steps=MAX_ITER, # when to stop decay
@@ -228,48 +220,47 @@ def main():
     if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
             or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
         WARMUP_EPOCHS = WARMUP_EPOCHS * len(train_loader)
-        print("Warmup Batches: ", WARMUP_EPOCHS)
+        print("Number of Warmup Batches: ", WARMUP_EPOCHS)
         IS_BATCH = True
     else:
         IS_BATCH = False
-        print("Warmup Epochs: ", WARMUP_EPOCHS)
+        print("Number of Warmup Epochs: ", WARMUP_EPOCHS)
 
     # GradualWarmupScheduler
     scheduler = GradualWarmupScheduler(optimizer,
-                                      multiplier=1,
-                                      total_epoch=WARMUP_EPOCHS, # when to stop warmup
-                                      after_scheduler=scheduler,
+                                       multiplier=1,
+                                       total_epoch=WARMUP_EPOCHS, # when to stop warmup
+                                       after_scheduler=scheduler,
                                        is_batch = IS_BATCH)
 
     ############################
     # Visualize sample images
     ############################
-    if DEVICE != "cuda":
-        # visualize some sample images
-        import matplotlib.pyplot as plt
-        import numpy as np
+    # visualize some sample images
+    import matplotlib.pyplot as plt
+    import numpy as np
 
-        images, masks = next(iter(train_loader))
-        n_samples = BATCH_SIZE // 2
+    images, masks = next(iter(train_loader))
+    n_samples = BATCH_SIZE // 2
 
-        # Create a figure with multiple subplots
-        fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
+    # Create a figure with multiple subplots
+    fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
 
-        # unnormalize
-        unorm = UnNormalize(mean=tuple(mean.numpy()), std=(tuple(std.numpy())))
+    # unnormalize
+    unorm = UnNormalize(mean=tuple(mean.numpy()), std=(tuple(std.numpy())))
 
-        # Iterate over the images and masks and plot them side by side
-        for i in range(n_samples):
-            img = unorm(images[i].squeeze(0))
-            img = np.transpose(img.numpy(), (1, 2, 0))
-            mask = np.squeeze(masks[i].numpy(), axis=0)
+    # Iterate over the images and masks and plot them side by side
+    for i in range(n_samples):
+        img = unorm(images[i].squeeze(0))
+        img = np.transpose(img.numpy(), (1, 2, 0))
+        mask = np.squeeze(masks[i].numpy(), axis=0)
 
-            axs[i, 0].axis("off")
-            axs[i, 0].imshow(img)
-            axs[i, 1].axis("off")
-            axs[i, 1].imshow(mask, cmap="gray")
-        plt.show()
-        # exit("Visualized sample images.")
+        axs[i, 0].axis("off")
+        axs[i, 0].imshow(img)
+        axs[i, 1].axis("off")
+        axs[i, 1].imshow(mask, cmap="gray")
+    plt.show()
+    # exit("Visualized sample images.")
 
     ############################
     # Training
