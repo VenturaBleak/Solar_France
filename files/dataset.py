@@ -1,6 +1,6 @@
 import os
 import torch
-from PIL import Image
+from PIL import Image, ImageFilter
 from torch.utils.data import Dataset
 import torchvision.transforms as T
 import numpy as np
@@ -120,26 +120,6 @@ def get_dirs_and_fractions(dataset_fractions, parent_dir):
 
     return image_dirs, mask_dirs, fractions
 
-def blackout_image(img, mask, center_height, center_width):
-    img_width, img_height = img.size
-    mask_width, mask_height = mask.size
-
-    # Create black images with the same dimensions as the input image and mask
-    black_image = Image.new('RGB', (img_width, img_height))
-    black_mask = Image.new('L', (mask_width, mask_height))
-
-    # Calculate the starting and ending positions for the center region
-    start_x = (img_width - center_width) // 2
-    start_y = (img_height - center_height) // 2
-    end_x = start_x + center_width
-    end_y = start_y + center_height
-
-    # Copy the center region from the input image and mask to the black images
-    black_image.paste(img.crop((start_x, start_y, end_x, end_y)), (start_x, start_y))
-    black_mask.paste(mask.crop((start_x, start_y, end_x, end_y)), (start_x, start_y))
-
-    return black_image, black_mask
-
 def center_crop_image(img, mask, crop_width, crop_height):
     img_width, img_height = img.size
     mask_width, mask_height = mask.size
@@ -168,124 +148,137 @@ def random_crop_image(img, mask, crop_width, crop_height):
 
     return img, mask
 
-def apply_train_transforms(img_mask):
-    """
-    https://pytorch.org/vision/stable/auto_examples/plot_transforms.html#sphx-glr-auto-examples-plot-transforms-py
-    :param img_mask: tuple containing an image and its corresponding mask
-    :param img_folder: the folder containing the image
-    :return: img, mask: the transformed image and mask
-    """
-    img, mask, img_folder = img_mask
+class TransformationTypes:
+    def __init__(self, train_mean, train_std, image_height, image_width):
+        self.train_mean = train_mean
+        self.train_std = train_std
+        self.image_height = image_height
+        self.image_width = image_width
 
-    # Toggle CROP on or off -> on, if data should be generalizable to Netherlands datasets
-    CROP = True
+    def apply_initial_transforms(self, img_mask):
+        img, mask, img_folder = img_mask
 
-    # Specify the folder names for which center cropping should be performed
-    CENTER_CROP_FOLDERS = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output"]  # Replace with your specific folder names
+        # Resize the image and mask
+        img = transforms.Resize((self.image_height, self.image_width))(img)
+        mask = transforms.Resize((self.image_height, self.image_width))(mask)
 
-    # Resize the image and mask
-    img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
-    mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
+        # transform to tensor
+        img = transforms.ToTensor()(img)
+        mask = transforms.ToTensor()(mask)
 
-    # specify the augmentation transforms to apply to the image and mask
-    if CROP == True:
-        # Crop and resize the image and mask
-        CROP_WIDTH, CROP_HEIGHT = 200, 200
+        return img, mask
 
-        # Extract the folder name
-        parent_folder = os.path.dirname(img_folder)
-        folder_name = os.path.basename(parent_folder)
-        if folder_name in CENTER_CROP_FOLDERS:
-            img, mask = center_crop_image(img, mask, CROP_WIDTH, CROP_HEIGHT)
-        else:
-            img, mask = random_crop_image(img, mask, CROP_WIDTH, CROP_HEIGHT)
+    def apply_val_transforms(self, img_mask):
+        img, mask, img_folder = img_mask
 
+        # Resize the image and mask
+        img = transforms.Resize((self.image_height, self.image_width))(img)
+        mask = transforms.Resize((self.image_height, self.image_width))(mask)
+
+        # transform to tensor
+        img = transforms.ToTensor()(img)
+        mask = transforms.ToTensor()(mask)
+
+        # Normalize the image
+        img = transforms.Normalize(self.train_mean, self.train_std)(img)
+
+        return img, mask
+
+    def apply_train_transforms(self, img_mask):
+        """
+        https://pytorch.org/vision/stable/auto_examples/plot_transforms.html#sphx-glr-auto-examples-plot-transforms-py
+        :param img_mask: tuple containing an image and its corresponding mask
+        :param img_folder: the folder containing the image
+        :return: img, mask: the transformed image and mask
+        """
+        img, mask, img_folder = img_mask
+
+        # Toggle CROP on or off -> on, if data should be generalizable to Netherlands datasets
+        CROP = True
+
+        # Specify the folder names for which center cropping should be performed
+        CENTER_CROP_FOLDERS = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output"]  # Replace with your specific folder names
+
+        # Resize the image and mask
         img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
         mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
 
-    ##############################
-    # Augment image only
-    ##############################
+        # specify the augmentation transforms to apply to the image and mask
+        if CROP == True:
+            # Crop and resize the image and mask
+            CROP_WIDTH, CROP_HEIGHT = 200, 200
 
-    # Add any other custom transforms here
-    # Apply color jitter to the image only
-    if random.random() < 0.9:
-        color_jitter = transforms.ColorJitter(brightness=0.6, contrast=0.5, saturation=0.4, hue=0.1)
-        img = color_jitter(img)
+            # Extract the folder name
+            parent_folder = os.path.dirname(img_folder)
+            folder_name = os.path.basename(parent_folder)
+            if folder_name in CENTER_CROP_FOLDERS:
+                img, mask = center_crop_image(img, mask, CROP_WIDTH, CROP_HEIGHT)
+            else:
+                img, mask = random_crop_image(img, mask, CROP_WIDTH, CROP_HEIGHT)
 
-    ##############################
-    # Augment both image and mask
-    ##############################
+            img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
+            mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
 
-    # Apply random horizontal and vertical flips
-    if random.random() < 0.5:
-        hflip = transforms.RandomHorizontalFlip(p=1.0)
-        img = hflip(img)
-        mask = hflip(mask)
+        ##############################
+        # Augment image only
+        ##############################
 
-    if random.random() < 0.5:
-        vflip = transforms.RandomVerticalFlip(p=1.0)
-        img = vflip(img)
-        mask = vflip(mask)
+        # Apply sharpening or smoothing to the
+        if random.random() < 0.5:
+            if random.random() < 0.5:
+                img = img.filter(ImageFilter.SHARPEN)  # 50% sharpening
+            else:
+                img = img.filter(ImageFilter.SMOOTH)  # 50% smoothing
 
-    # Apply random rotation and translation (shift)
-    # specify hyperparameters for rotation and translation
-    ROTATION = 50
-    TRANSLATION = 0.45
-    # apply transforms
-    angle = random.uniform(-ROTATION, ROTATION)
-    translate_x = random.uniform(-TRANSLATION * IMAGE_WIDTH, TRANSLATION * IMAGE_WIDTH)
-    translate_y = random.uniform(-TRANSLATION * IMAGE_HEIGHT, TRANSLATION * IMAGE_HEIGHT)
-    img = TF.affine(img, angle, (translate_x, translate_y), 1, 0)
-    mask = TF.affine(mask, angle, (translate_x, translate_y), 1, 0)
+        # Add any other custom transforms here
+        # Apply color jitter to the image only
+        if random.random() < 0.9:
+            color_jitter = transforms.ColorJitter(brightness=0.5, contrast=0.4, saturation=0.3, hue=0.1)
+            img = color_jitter(img)
 
-    # transform to tensor
-    img = transforms.ToTensor()(img)
-    mask = transforms.ToTensor()(mask)
+        ##############################
+        # Augment both image and mask
+        ##############################
 
-    # Normalize the image
-    img = transforms.Normalize(mean=train_mean, std=train_std)(img)
+        # Zooming in and out by max x%
+        ZOOM = 0.1 # 0.1 = 10% -> 10% zoom in or out
+        if random.random() < 0.5:
+            zoom_factor = random.uniform(1 - ZOOM, 1 + ZOOM)
+            zoom_transform = transforms.RandomResizedCrop((IMAGE_HEIGHT, IMAGE_WIDTH), scale=(zoom_factor, zoom_factor),
+                                                          ratio=(1, 1))
+            img = zoom_transform(img)
+            mask = zoom_transform(mask)
 
-    return img, mask
+        # Apply random horizontal and vertical flips
+        if random.random() < 0.5:
+            hflip = transforms.RandomHorizontalFlip(p=1.0)
+            img = hflip(img)
+            mask = hflip(mask)
 
-def apply_val_transforms(img_mask):
-    """Function to apply the transformations to be used for the validation set.
-    Only resizing and converting to tensor.
-    No random transformations are applied to the validation set.
-    :param img_mask:
-    :return: img, mask"""
-    img, mask, img_folder = img_mask
+        if random.random() < 0.5:
+            vflip = transforms.RandomVerticalFlip(p=1.0)
+            img = vflip(img)
+            mask = vflip(mask)
 
-    # Resize the image and mask
-    img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
-    mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
+        # Apply random rotation and translation (shift)
+        # specify hyperparameters for rotation and translation
+        ROTATION = 50
+        TRANSLATION = 0.45
+        # apply transforms
+        angle = random.uniform(-ROTATION, ROTATION)
+        translate_x = random.uniform(-TRANSLATION * IMAGE_WIDTH, TRANSLATION * IMAGE_WIDTH)
+        translate_y = random.uniform(-TRANSLATION * IMAGE_HEIGHT, TRANSLATION * IMAGE_HEIGHT)
+        img = TF.affine(img, angle, (translate_x, translate_y), 1, 0)
+        mask = TF.affine(mask, angle, (translate_x, translate_y), 1, 0)
 
-    # transform to tensor
-    img = transforms.ToTensor()(img)
-    mask = transforms.ToTensor()(mask)
+        # transform to tensor
+        img = transforms.ToTensor()(img)
+        mask = transforms.ToTensor()(mask)
 
-    # Normalize the image
-    img = transforms.Normalize(train_mean, train_std)(img)
+        # Normalize the image
+        img = transforms.Normalize(mean=train_mean, std=train_std)(img)
 
-    return img, mask
-
-def apply_initial_transforms(img_mask):
-    """Function to apply the transformations to be used for the validation set.
-    Only resizing and converting to tensor.
-    No random transformations are applied to the validation set.
-    :param img_mask:
-    :return: img, mask"""
-    img, mask, img_folder = img_mask
-
-    # Resize the image and mask
-    img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
-    mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
-
-    # transform to tensor
-    img = transforms.ToTensor()(img)
-    mask = transforms.ToTensor()(mask)
-
-    return img, mask
+        return img, mask
 
 def get_mean_std(train_loader):
     """Function to calculate the mean and standard deviation of the training set.

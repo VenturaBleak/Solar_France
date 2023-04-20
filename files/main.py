@@ -12,9 +12,8 @@ from model import (UNET,
                    DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
                    PolynomialLRDecay, GradualWarmupScheduler
                    )
-from dataset import (FranceSegmentationDataset,
+from dataset import (FranceSegmentationDataset, TransformationTypes,
                      create_train_val_splits,get_dirs_and_fractions,
-                     apply_train_transforms, apply_val_transforms, apply_initial_transforms,
                      set_image_dimensions, set_mean_std, get_mean_std, UnNormalize)
 from train import train_fn
 from image_size_check import check_dimensions
@@ -96,11 +95,14 @@ def main():
 
 
     ############################
-    # Get mean and std of training set
+    # Specify initial transforms
     ############################
-    # get simple transforms
-    train_transforms = transforms.Lambda(apply_initial_transforms)
-    val_transforms = transforms.Lambda(apply_initial_transforms)
+    transformations = TransformationTypes(None, None, IMAGE_HEIGHT, IMAGE_WIDTH)
+    inital_transforms = transforms.Lambda(transformations.apply_initial_transforms)
+
+    ############################
+    # Check data loading is correct
+    ############################
 
     # assert that the number of images and masks are the same
     train_ds = FranceSegmentationDataset(
@@ -108,20 +110,23 @@ def main():
         mask_dirs=mask_dirs,
         images=train_images,
         masks=train_masks,
-        transform=train_transforms,
+        transform=inital_transforms,
     )
     val_ds = FranceSegmentationDataset(
         image_dirs=image_dirs,
         mask_dirs=mask_dirs,
         images=val_images,
         masks=val_masks,
-        transform=val_transforms,
+        transform=inital_transforms,
     )
     assert (len(train_ds) + len(val_ds)) == total_selected_images
     print(f"Total number of images: {total_selected_images}, "
           f"of which {len(train_ds)} are training images and {len(val_ds)} are validation images.")
     del val_ds, train_ds
 
+    ############################
+    # Get mean and std of training set
+    ############################
     # Get loaders
     train_loader, val_loader = get_loaders(
         image_dirs=image_dirs,
@@ -131,23 +136,23 @@ def main():
         val_images=val_images,
         val_masks=val_masks,
         batch_size=BATCH_SIZE,
-        train_transforms=train_transforms,
-        val_transforms=val_transforms,
+        train_transforms=inital_transforms,
+        val_transforms=inital_transforms,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
     )
     # retrieve the mean and std of the training images
-    mean, std = get_mean_std(train_loader)
+    train_mean, train_std = get_mean_std(train_loader)
 
     # pass on the mean and std to the dataset class
-    set_mean_std(mean, std)
-
+    set_mean_std(train_mean, train_std)
 
     ############################
     # Transforms
     ############################
-    train_transforms = transforms.Lambda(apply_train_transforms)
-    val_transforms = transforms.Lambda(apply_val_transforms)
+    transformations = TransformationTypes(train_mean, train_std, IMAGE_HEIGHT, IMAGE_WIDTH)
+    train_transforms = transforms.Lambda(transformations.apply_train_transforms)
+    val_transforms = transforms.Lambda(transformations.apply_val_transforms)
 
     ############################
     # Data Loaders
@@ -205,9 +210,7 @@ def main():
     # loss_fn = DiceBCELoss()
 
     # Focal
-    # loss_fn = FocalLoss()
-
-
+    # loss_fn = FocalLoss()3
 
     ############################
     # Optimizer
@@ -253,8 +256,6 @@ def main():
     #                               end_learning_rate=LEARNING_RATE*1e-4,
     #                               power=POLY_POWER)
 
-
-
     # Scheduler warmup
     # handle batch level schedulers
     if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
@@ -287,7 +288,7 @@ def main():
     fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
 
     # unnormalize
-    unorm = UnNormalize(mean=tuple(mean.numpy()), std=(tuple(std.numpy())))
+    unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
 
     # Iterate over the images and masks and plot them side by side
     for i in range(n_samples):
