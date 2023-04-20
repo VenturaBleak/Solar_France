@@ -14,7 +14,7 @@ from model import (UNET,
                    )
 from dataset import (FranceSegmentationDataset, TransformationTypes,
                      create_train_val_splits,get_dirs_and_fractions,
-                     set_image_dimensions, set_mean_std, get_mean_std, UnNormalize)
+                     get_mean_std, UnNormalize)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
@@ -43,13 +43,11 @@ def main():
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
+    CROPPING = False
 
     ############################
     # Script
     ############################
-    # pass on the image dimensions to the dataset class
-    set_image_dimensions(IMAGE_HEIGHT, IMAGE_WIDTH)
-
     # Get the current working directory
     cwd = os.getcwd()
 
@@ -97,7 +95,7 @@ def main():
     ############################
     # Specify initial transforms
     ############################
-    transformations = TransformationTypes(None, None, IMAGE_HEIGHT, IMAGE_WIDTH)
+    transformations = TransformationTypes(None, None, IMAGE_HEIGHT, IMAGE_WIDTH, cropping=False)
     inital_transforms = transforms.Lambda(transformations.apply_initial_transforms)
 
     ############################
@@ -144,13 +142,10 @@ def main():
     # retrieve the mean and std of the training images
     train_mean, train_std = get_mean_std(train_loader)
 
-    # pass on the mean and std to the dataset class
-    set_mean_std(train_mean, train_std)
-
     ############################
     # Transforms
     ############################
-    transformations = TransformationTypes(train_mean, train_std, IMAGE_HEIGHT, IMAGE_WIDTH)
+    transformations = TransformationTypes(train_mean, train_std, IMAGE_HEIGHT, IMAGE_WIDTH, cropping=CROPPING)
     train_transforms = transforms.Lambda(transformations.apply_train_transforms)
     val_transforms = transforms.Lambda(transformations.apply_val_transforms)
 
