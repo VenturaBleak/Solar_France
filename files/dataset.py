@@ -24,9 +24,9 @@ def set_mean_std(mean, std):
     train_std = std
 
 class FranceSegmentationDataset(Dataset):
-    def __init__(self, image_dir, mask_dir, images, masks, transform=None):
-        self.image_dir = image_dir
-        self.mask_dir = mask_dir
+    def __init__(self, image_dirs, mask_dirs, images, masks, transform=None):
+        self.image_dirs = image_dirs
+        self.mask_dirs = mask_dirs
         self.images = images
         self.masks = masks
         self.transform = transform
@@ -36,19 +36,47 @@ class FranceSegmentationDataset(Dataset):
 
     def __getitem__(self, idx):
         # Load the image and mask
-        image_path = os.path.join(self.image_dir, self.images[idx])
-        mask_path = os.path.join(self.mask_dir, self.masks[idx])
+        for image_dir in self.image_dirs:
+            # specify the path to the image
+            image_path = os.path.join(image_dir, self.images[idx])
+            # check if the image exists
+            if os.path.exists(image_path):
+                # if the image exists, break the loop
+                break
+
+        # repeat the same process for the mask
+        for mask_dir in self.mask_dirs:
+            mask_path = os.path.join(mask_dir, self.masks[idx])
+            if os.path.exists(mask_path):
+                break
+
+        # load the image and mask
         image = Image.open(image_path).convert("RGB")
         mask = Image.open(mask_path).convert("L")
 
-        image, mask = self.transform((image, mask))
+        # apply the transformations, also pass the image folder path to the apply_train_transforms function
+        image, mask = self.transform((image, mask, image_dir))
 
         return image, mask
 
-def create_train_val_splits(image_dir, mask_dir, val_size=0.2, random_state=42):
-    # List all images and masks in the data directory
-    images = sorted(os.listdir(image_dir))
-    masks = sorted(os.listdir(mask_dir))
+def create_train_val_splits(image_dirs, mask_dirs, fractions, val_size=0.2, random_state=42):
+    # List all images and masks in the data directories
+    images = []
+    masks = []
+    for image_dir, mask_dir, fraction in zip(image_dirs, mask_dirs, fractions):
+        all_images = sorted(os.listdir(image_dir))
+        all_masks = sorted(os.listdir(mask_dir))
+
+        num_samples = int(len(all_images) * fraction)
+
+        random.seed(random_state)
+        selected_images = random.sample(all_images, num_samples)
+
+        # Find the corresponding masks for the selected images
+        selected_masks = [os.path.basename(os.path.join(mask_dir, img_name)) for img_name in selected_images]
+
+        images.extend(selected_images)
+        masks.extend(selected_masks)
 
     # Create a list of tuples, where each tuple contains an image file and its corresponding mask file
     data = list(zip(images, masks))
@@ -64,7 +92,33 @@ def create_train_val_splits(image_dir, mask_dir, val_size=0.2, random_state=42):
     train_images, train_masks = zip(*train_data)
     val_images, val_masks = zip(*val_data)
 
-    return train_images, train_masks, val_images, val_masks
+    # Calculate the total number of images in the training and validation subsets
+    total_selected_images = 0
+    for image_dir, fraction in zip(image_dirs, fractions):
+        images = sorted(os.listdir(image_dir))
+        num_images = int(len(images) * fraction)
+        total_selected_images += num_images
+
+    return train_images, train_masks, val_images, val_masks, total_selected_images
+
+def get_dirs_and_fractions(dataset_fractions, parent_dir):
+    image_dirs = []
+    mask_dirs = []
+    fractions = []
+
+    for ds_info in dataset_fractions:
+        dataset_name, pos_fraction, neg_fraction = ds_info
+
+        image_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'images_positive'))
+        image_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'images_negative'))
+
+        mask_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'masks_positive'))
+        mask_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'masks_negative'))
+
+        fractions.append(pos_fraction)
+        fractions.append(neg_fraction)
+
+    return image_dirs, mask_dirs, fractions
 
 def blackout_image(img, mask, center_height, center_width):
     img_width, img_height = img.size
@@ -86,17 +140,68 @@ def blackout_image(img, mask, center_height, center_width):
 
     return black_image, black_mask
 
+def center_crop_image(img, mask, crop_width, crop_height):
+    img_width, img_height = img.size
+    mask_width, mask_height = mask.size
+
+    start_x = (img_width - crop_width) // 2
+    start_y = (img_height - crop_height) // 2
+    end_x = start_x + crop_width
+    end_y = start_y + crop_height
+
+    img = img.crop((start_x, start_y, end_x, end_y))
+    mask = mask.crop((start_x, start_y, end_x, end_y))
+
+    return img, mask
+
+def random_crop_image(img, mask, crop_width, crop_height):
+    img_width, img_height = img.size
+    mask_width, mask_height = mask.size
+
+    start_x = random.randint(0, img_width - crop_width)
+    start_y = random.randint(0, img_height - crop_height)
+    end_x = start_x + crop_width
+    end_y = start_y + crop_height
+
+    img = img.crop((start_x, start_y, end_x, end_y))
+    mask = mask.crop((start_x, start_y, end_x, end_y))
+
+    return img, mask
+
 def apply_train_transforms(img_mask):
     """
     https://pytorch.org/vision/stable/auto_examples/plot_transforms.html#sphx-glr-auto-examples-plot-transforms-py
-    :param img_mask:
-    :return: img, mask
+    :param img_mask: tuple containing an image and its corresponding mask
+    :param img_folder: the folder containing the image
+    :return: img, mask: the transformed image and mask
     """
-    img, mask = img_mask
+    img, mask, img_folder = img_mask
+
+    # Toggle CROP on or off -> on, if data should be generalizable to Netherlands datasets
+    CROP = True
+
+    # Specify the folder names for which center cropping should be performed
+    CENTER_CROP_FOLDERS = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output"]  # Replace with your specific folder names
 
     # Resize the image and mask
     img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
     mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
+
+    # specify the augmentation transforms to apply to the image and mask
+    if CROP == True:
+        # Crop and resize the image and mask
+        CROP_WIDTH, CROP_HEIGHT = 200, 200
+
+        # Extract the folder name
+        parent_folder = os.path.dirname(img_folder)
+        folder_name = os.path.basename(parent_folder)
+        if folder_name in CENTER_CROP_FOLDERS:
+            img, mask = center_crop_image(img, mask, CROP_WIDTH, CROP_HEIGHT)
+        else:
+            img, mask = random_crop_image(img, mask, CROP_WIDTH, CROP_HEIGHT)
+
+        img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
+        mask = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(mask)
 
     ##############################
     # Augment image only
@@ -111,10 +216,6 @@ def apply_train_transforms(img_mask):
     ##############################
     # Augment both image and mask
     ##############################
-
-    # experimental: Blackout the image and mask except for the 200x200 center region
-    if random.random() < 0.5:
-        img, mask = blackout_image(img, mask, 200, 200)
 
     # Apply random horizontal and vertical flips
     if random.random() < 0.5:
@@ -153,7 +254,7 @@ def apply_val_transforms(img_mask):
     No random transformations are applied to the validation set.
     :param img_mask:
     :return: img, mask"""
-    img, mask = img_mask
+    img, mask, img_folder = img_mask
 
     # Resize the image and mask
     img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)
@@ -174,7 +275,7 @@ def apply_initial_transforms(img_mask):
     No random transformations are applied to the validation set.
     :param img_mask:
     :return: img, mask"""
-    img, mask = img_mask
+    img, mask, img_folder = img_mask
 
     # Resize the image and mask
     img = transforms.Resize((IMAGE_HEIGHT, IMAGE_WIDTH))(img)

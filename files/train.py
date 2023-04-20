@@ -70,3 +70,5 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
 
     # update tqdm loop
     loop.set_postfix(loss=f"{epoch_loss:.4f}")
+
+    return epoch_loss

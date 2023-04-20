@@ -104,7 +104,6 @@ class FocalLoss(nn.Module):
 ALPHA = 0.5
 BETA = 0.5
 
-
 class TverskyLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
         super(TverskyLoss, self).__init__()

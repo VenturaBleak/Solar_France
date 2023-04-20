@@ -5,17 +5,29 @@ from torch.utils.data import DataLoader
 import os
 import torch.nn.functional as F
 
-def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
+def generate_model_name(architecture, loss_function, optimizer, dataset_names):
+    model_name = f"{architecture}_{loss_function}_{optimizer}"
+    for dataset_name in dataset_names:
+        model_name += f"_{dataset_name}"
+    return model_name
+
+def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_name=None, parent_dir=None):
+    if model_name is not None:
+        os.makedirs(os.path.join(parent_dir, "trained_models"), exist_ok=True)
+        filepath = os.path.join(parent_dir, "trained_models")
+        filename = os.path.join(parent_dir, "trained_models", f"{model_name}.pth.tar")
+
     torch.save(state, filename)
+    print(f'Best model saved as {filename}')
+    return filepath
 
 def load_checkpoint(checkpoint, model, optimizer):
     print("=> Loading checkpoint")
     model.load_state_dict(checkpoint["state_dict"])
 
 def get_loaders(
-    image_dir,
-    mask_dir,
+    image_dirs,
+    mask_dirs,
     train_images,
     train_masks,
     val_images,
@@ -27,8 +39,8 @@ def get_loaders(
     pin_memory=True,
 ):
     train_ds = FranceSegmentationDataset(
-        image_dir=image_dir,
-        mask_dir=mask_dir,
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
         images=train_images,
         masks=train_masks,
         transform=train_transforms,
@@ -43,8 +55,8 @@ def get_loaders(
     )
 
     val_ds = FranceSegmentationDataset(
-        image_dir=image_dir,
-        mask_dir=mask_dir,
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
         images=val_images,
         masks=val_masks,
         transform=val_transforms,
@@ -60,41 +72,7 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def check_accuracy(loader, model, device="cuda"):
-    num_correct = 0
-    num_pixels = 0
-    dice_score = 0
-    model.eval()
-
-    class_correct = [0, 0]  # [background_correct, foreground_correct]
-    class_pixels = [0, 0]  # [background_pixels, foreground_pixels]
-
-    with torch.no_grad():
-        for x, y in loader:
-            x = x.to(device)
-            y = y.to(device)
-            preds = torch.sigmoid(model(x))
-            preds = (preds > 0.5).float()
-            dice_score += (2 * (preds * y).sum().item()) / (
-                (preds + y).sum().item() + 1e-8
-            )  # Convert to Python int
-
-            # Overall accuracy calculation
-            num_correct += (preds == y).sum().item()
-            num_pixels += torch.numel(preds)
-
-            # Class-wise accuracy calculation
-            for cls in range(2):
-                class_correct[cls] += ((preds == y) * (y == cls).float()).sum().item()
-                class_pixels[cls] += (y == cls).sum().item()
-
-    print(f"Dice score: {dice_score/len(loader):.3f}")
-    print(f"Overall Accuracy: {num_correct/num_pixels*100:.2f}")
-    print(f"Background class accuracy: {class_correct[0]/class_pixels[0]*100:.2f}")
-    print(f"Foreground class accuracy: {class_correct[1]/class_pixels[1]*100:.2f}")
-    model.train()
-
-def save_predictions_as_imgs(loader, model, epoch, unnorm, folder="saved_images/", device="cuda", ):
+def save_predictions_as_imgs(loader, model, epoch, unnorm, model_name, folder="saved_images/", device="cuda", ):
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -134,17 +112,20 @@ def save_predictions_as_imgs(loader, model, epoch, unnorm, folder="saved_images/
 
     # Stack all images vertically
     stacked_images = torch.cat(all_images, dim=2)
+
+    # specify the path to save the stacked images
+    path = os.path.join(folder, f"{model_name}.png")
     # Save the stacked images
-    torchvision.utils.save_image(stacked_images, f"{folder}/Epoch_{epoch:08d}.png")
+    torchvision.utils.save_image(stacked_images, path)
 
     # Set the model back to train mode
     model.train()
 
 def calculate_binary_metrics(loader, model, loss_fn, device="cuda"):
     """Calculate common metrics in binary cases.
-    binary metrics: pixel accuracy, dice, precision, specificity, recall
+    binary metrics: pixel accuracy, iou, precision, specificity, recall
     pixel accuracy = (TP + TN) / (TP + TN + FP + FN) -> intuition: how many pixels are correctly classified
-    dice = 2 * (TP) / (2 * TP + FP + FN) -> intuition:
+    iou = TP / (TP + FP + FN) -> intuition: how many pixels are correctly classified as foreground
     precision = TP / (TP + FP) -> intuition:
     specificity = TN / (TN + FP) -> intuition:
     recall = TP / (TP + FN) -> intuition:
@@ -217,10 +198,10 @@ class BinaryMetrics():
         #     Intuition: A higher pixel accuracy means better identification of both foreground and background classes.
         pixel_acc = (tp + tn + self.eps) / (tp + tn + fp + fn + self.eps)
 
-        #     Dice Score: 2 * (TP) / (2 * TP + FP + FN) -> Jaccard index
-        #     A measure of similarity between the predicted segmentation and the ground truth segmentation, considering both TP and FP + FN pixels.
-        #     Intuition: A higher dice score means better overlap between the predicted segmentation and the ground truth segmentation.
-        dice = (2 * tp + self.eps) / (2 * tp + fp + fn + self.eps)
+        # IoU = TP / (TP + FP + FN)
+        # The proportion of correctly classified foreground pixels out of the total number of pixels in both the ground truth and prediction.
+        # Intuition: A higher IoU means better identification of the foreground class.
+        iou = (tp + self.eps) / (tp + fp + fn + self.eps)
 
         #     Specificity: TN / (TN + FP)
         #     The proportion of true negative pixels (correctly classified background pixels) out of all TN and FP pixels.
@@ -247,13 +228,22 @@ class BinaryMetrics():
         #     Intuition: A higher specificity means better identification of the background class.
         bg_acc = tn / (tn + fp + self.eps)
 
-        return pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc
+        # convert to numpy & put on device -> cpu
+        pixel_acc = pixel_acc.cpu().numpy()
+        iou = iou.cpu().numpy()
+        precision = precision.cpu().numpy()
+        specificity = specificity.cpu().numpy()
+        recall = recall.cpu().numpy()
+        f1_score = f1_score.cpu().numpy()
+        bg_acc = bg_acc.cpu().numpy()
+
+        return pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc
 
     def __call__(self, y_true, y_pred):
         assert y_pred.shape[1] == 1, 'Predictions must contain only one channel' \
                                      ' when performing binary segmentation'
-        pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc = self._calculate_overlap_metrics(
+        pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc = self._calculate_overlap_metrics(
             y_true.to(y_pred.device,
                       dtype=torch.float),
             y_pred)
-        return [pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc]
+        return [pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc]

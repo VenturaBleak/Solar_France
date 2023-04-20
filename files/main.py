@@ -6,13 +6,14 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
+import pandas as pd
 from model import (UNET,
                    Segformer, create_segformer,
                    DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
                    PolynomialLRDecay, GradualWarmupScheduler
                    )
 from dataset import (FranceSegmentationDataset,
-                     create_train_val_splits,
+                     create_train_val_splits,get_dirs_and_fractions,
                      apply_train_transforms, apply_val_transforms, apply_initial_transforms,
                      set_image_dimensions, set_mean_std, get_mean_std, UnNormalize)
 from train import train_fn
@@ -21,9 +22,9 @@ from utils import (
     save_checkpoint,
     load_checkpoint,
     get_loaders,
-    check_accuracy,
     save_predictions_as_imgs,
-    calculate_binary_metrics
+    calculate_binary_metrics,
+    generate_model_name
 )
 
 def main():
@@ -42,7 +43,7 @@ def main():
     IMAGE_HEIGHT = 416  # 400 originally
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
-    WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05)
+    WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
 
     ############################
     # Script
@@ -56,24 +57,43 @@ def main():
     # Define the parent directory of the current working directory
     parent_dir = os.path.dirname(cwd)
 
+    # specify the training datasets
     if DEVICE == "cuda":
-        image_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'images')
-        mask_dir = os.path.join(parent_dir, 'data', 'bdappv', 'google', 'masks')
-
+        dataset_fractions = [
+        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+            ['France_google', 0.02, 0.02],
+            ['Munich', 0.02, 0.02],
+            ['Heerlen_2018_HR_output', 0, 0.02],
+            ['Denmark', 0, 0.02]
+        ]
     else:
-        image_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'images')
-        mask_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'masks')
+        dataset_fractions = [
+        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+            ['France_google', 0.004, 0.0],
+            ['Munich', 0.0, 0.0],
+            ['Denmark', 0.0, 0.0],
+            ['Heerlen_2018_HR_output', 0.0, 0.001],
+            ['ZL_2018_HR_output', 0.0, 0.0]
+        ]
 
-    # assert that the number of images and masks are equal
-    assert len(os.listdir(image_dir)) == len(os.listdir(mask_dir))
+    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
 
     ############################
     # Train and validation splits
     ############################
-    train_images, train_masks, val_images, val_masks = create_train_val_splits(image_dir,
-                                                                               mask_dir,
-                                                                               val_size=0.1,
-                                                                               random_state=RANDOM_SEED)
+    # Train and validation splits
+    train_images, train_masks, val_images, val_masks, total_selected_images = create_train_val_splits(
+        image_dirs,
+        mask_dirs,
+        fractions,
+        val_size=0.1,
+        random_state=RANDOM_SEED,
+    )
+
+    # assert that images and masks are identical
+    assert train_images == train_masks
+    assert val_images == val_masks
+
 
     ############################
     # Get mean and std of training set
@@ -82,10 +102,30 @@ def main():
     train_transforms = transforms.Lambda(apply_initial_transforms)
     val_transforms = transforms.Lambda(apply_initial_transforms)
 
-    # get train loader
+    # assert that the number of images and masks are the same
+    train_ds = FranceSegmentationDataset(
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
+        images=train_images,
+        masks=train_masks,
+        transform=train_transforms,
+    )
+    val_ds = FranceSegmentationDataset(
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
+        images=val_images,
+        masks=val_masks,
+        transform=val_transforms,
+    )
+    assert (len(train_ds) + len(val_ds)) == total_selected_images
+    print(f"Total number of images: {total_selected_images}, "
+          f"of which {len(train_ds)} are training images and {len(val_ds)} are validation images.")
+    del val_ds, train_ds
+
+    # Get loaders
     train_loader, val_loader = get_loaders(
-        image_dir=image_dir,
-        mask_dir=mask_dir,
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
         train_images=train_images,
         train_masks=train_masks,
         val_images=val_images,
@@ -109,13 +149,13 @@ def main():
     train_transforms = transforms.Lambda(apply_train_transforms)
     val_transforms = transforms.Lambda(apply_val_transforms)
 
-
     ############################
     # Data Loaders
     ############################
+    # Get loaders
     train_loader, val_loader = get_loaders(
-        image_dir=image_dir,
-        mask_dir=mask_dir,
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
         train_images=train_images,
         train_masks=train_masks,
         val_images=val_images,
@@ -272,27 +312,49 @@ def main():
     #time all epochs
     start_time = time.time()
 
+    # Initialize an empty DataFrame to store the logs
+    log_df = pd.DataFrame(
+        columns=["epoch", "learning_rate", "train_loss", "val_loss", "val_f1-score", "val_precision", "val_recall",
+                 "val_pixel_acc", "val_iou", "val_specificity", "val_bg-acc"])
+
+    # Initialize the best validation metric
+    best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
+
     # train the model
     for epoch in range(NUM_EPOCHS):
-        train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
+        epoch_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
 
         # validation
         avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
-        pixel_acc, dice, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
-        print(f"Val.Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
+        pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
+        print(
+            f"Val.Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
 
-        # save model and sample predictions
-        if DEVICE == "cuda" and epoch % 5 == 0:
-            # save model
+        # Update the DataFrame with the epoch, learning rate, train_loss, and evaluation metrics
+        log_df.loc[epoch] = [epoch, scheduler.get_last_lr()[0], epoch_loss, val_loss, f1_score, precision, recall,
+                             pixel_acc, iou, specificity, bg_acc]
+
+        # Check if the current validation metric is better than the best one
+        if f1_score > best_val_metric:  # Change the condition if using val_loss or another metric
+            best_val_metric = f1_score
+
+            # save model and sample predictions
             checkpoint = {
                 "state_dict": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
             }
-            save_checkpoint(checkpoint)
-
+            model_name = generate_model_name(segformer_arch, "TverskyLoss", "AdamW", [x[0] for x in dataset_fractions])
+            model_path = save_checkpoint(checkpoint, model_name=model_name, parent_dir=parent_dir)
             # save some examples to a folder
             save_predictions_as_imgs(
-                val_loader, model, epoch=epoch, unnorm=unorm, folder="saved_images/", device=DEVICE)
+                val_loader, model, epoch=epoch, unnorm=unorm, model_name=model_name, folder=model_path,
+                device=DEVICE)
+
+        # save the logs after every 5 epochs
+        if epoch % 5 == 0:
+            # Save the DataFrame as a CSV file in the same folder as the model and images, using the same name
+            log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
+            log_df.to_csv(log_csv_path, index=False)
 
     print("All epochs completed.")
 
