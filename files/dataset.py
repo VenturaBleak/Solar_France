@@ -72,7 +72,15 @@ def create_train_val_splits(image_dirs, mask_dirs, fractions, val_size=0.2, rand
     random.shuffle(data)
 
     # Split the data into training and validation subsets
-    train_data, val_data = train_test_split(data, test_size=val_size, random_state=random_state)
+    # exception handling for the case when val_size is >= 1
+    if val_size >= 1:
+        # then, the val_size is the total number of images
+        train_data = data
+        val_data = data
+    else:
+        train_data, val_data = train_test_split(data, test_size=val_size, random_state=random_state)
+
+
 
     # Separate the images and masks into two separate lists for each subset
     train_images, train_masks = zip(*train_data)

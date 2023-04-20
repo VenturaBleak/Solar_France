@@ -66,9 +66,9 @@ def main():
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.001, 0.0],
+            ['France_google', 1, 0.0],
             ['Munich', 0.0, 0.0],
-            ['Denmark', 0.0, 0.001],
+            ['Denmark', 0.0, 0.0],
             ['Heerlen_2018_HR_output', 0.0, 0.0],
             ['ZL_2018_HR_output', 0.0, 0.0]
         ]
@@ -350,7 +350,7 @@ def main():
             model_path = save_checkpoint(checkpoint, model_name=model_name, parent_dir=parent_dir)
             # save some examples to a folder
             save_predictions_as_imgs(
-                val_loader, model, epoch=epoch, unnorm=unorm, model_name=model_name, folder=model_path,
+                val_loader, model, unnorm=unorm, model_name=model_name, folder=model_path,
                 device=DEVICE, testing=False)
 
         # Save the logs

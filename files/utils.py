@@ -72,7 +72,7 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def save_predictions_as_imgs(loader, model, epoch, unnorm, model_name, folder="saved_images/", device="cuda", testing=False):
+def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda", testing=False):
     if testing == True:
         name_extension = "test"
     else:
