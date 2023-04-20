@@ -72,7 +72,12 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def save_predictions_as_imgs(loader, model, epoch, unnorm, model_name, folder="saved_images/", device="cuda", ):
+def save_predictions_as_imgs(loader, model, epoch, unnorm, model_name, folder="saved_images/", device="cuda", testing=False):
+    if testing == True:
+        name_extension = "test"
+    else:
+        name_extension = "val"
+
     # create a folder if not exists, cwd + folder
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -114,7 +119,7 @@ def save_predictions_as_imgs(loader, model, epoch, unnorm, model_name, folder="s
     stacked_images = torch.cat(all_images, dim=2)
 
     # specify the path to save the stacked images
-    path = os.path.join(folder, f"{model_name}.png")
+    path = os.path.join(folder, f"{model_name}_{name_extension}.png")
     # Save the stacked images
     torchvision.utils.save_image(stacked_images, path)
 

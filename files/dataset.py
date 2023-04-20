@@ -1,6 +1,6 @@
 import os
 import torch
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageEnhance
 from torch.utils.data import Dataset
 import torchvision.transforms as T
 import numpy as np
@@ -106,34 +106,6 @@ def get_dirs_and_fractions(dataset_fractions, parent_dir):
 
     return image_dirs, mask_dirs, fractions
 
-def center_crop_image(img, mask, crop_width, crop_height):
-    img_width, img_height = img.size
-    mask_width, mask_height = mask.size
-
-    start_x = (img_width - crop_width) // 2
-    start_y = (img_height - crop_height) // 2
-    end_x = start_x + crop_width
-    end_y = start_y + crop_height
-
-    img = img.crop((start_x, start_y, end_x, end_y))
-    mask = mask.crop((start_x, start_y, end_x, end_y))
-
-    return img, mask
-
-def random_crop_image(img, mask, crop_width, crop_height):
-    img_width, img_height = img.size
-    mask_width, mask_height = mask.size
-
-    start_x = random.randint(0, img_width - crop_width)
-    start_y = random.randint(0, img_height - crop_height)
-    end_x = start_x + crop_width
-    end_y = start_y + crop_height
-
-    img = img.crop((start_x, start_y, end_x, end_y))
-    mask = mask.crop((start_x, start_y, end_x, end_y))
-
-    return img, mask
-
 class TransformationTypes:
     def __init__(self, train_mean, train_std, image_height, image_width, cropping=False):
         self.train_mean = train_mean
@@ -141,7 +113,35 @@ class TransformationTypes:
         self.image_height = image_height
         self.image_width = image_width
         self.cropping = cropping
-        self.center_crop_folders = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output"]
+        self.center_crop_folders = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output", "Denmark"]
+
+    def center_crop_image(self, img, mask, crop_width, crop_height):
+        img_width, img_height = img.size
+        mask_width, mask_height = mask.size
+
+        start_x = (img_width - crop_width) // 2
+        start_y = (img_height - crop_height) // 2
+        end_x = start_x + crop_width
+        end_y = start_y + crop_height
+
+        img = img.crop((start_x, start_y, end_x, end_y))
+        mask = mask.crop((start_x, start_y, end_x, end_y))
+
+        return img, mask
+
+    def random_crop_image(self, img, mask, crop_width, crop_height):
+        img_width, img_height = img.size
+        mask_width, mask_height = mask.size
+
+        start_x = random.randint(0, img_width - crop_width)
+        start_y = random.randint(0, img_height - crop_height)
+        end_x = start_x + crop_width
+        end_y = start_y + crop_height
+
+        img = img.crop((start_x, start_y, end_x, end_y))
+        mask = mask.crop((start_x, start_y, end_x, end_y))
+
+        return img, mask
 
     def apply_cropping(self, img, mask, img_folder):
         if self.cropping:
@@ -149,9 +149,9 @@ class TransformationTypes:
             parent_folder = os.path.dirname(img_folder)
             folder_name = os.path.basename(parent_folder)
             if folder_name in self.center_crop_folders:
-                img, mask = center_crop_image(img, mask, crop_width, crop_height)
+                img, mask = self.center_crop_image(img, mask, crop_width, crop_height)
             else:
-                img, mask = random_crop_image(img, mask, crop_width, crop_height)
+                img, mask = self.random_crop_image(img, mask, crop_width, crop_height)
 
             img = transforms.Resize((self.image_height, self.image_width))(img)
             mask = transforms.Resize((self.image_height, self.image_width))(mask)
@@ -205,24 +205,23 @@ class TransformationTypes:
 
         # Apply cropping
         img, mask = self.apply_cropping(img, mask, img_folder)
-        img = transforms.Resize((self.image_height, self.image_width))(img)
-        mask = transforms.Resize((self.image_height, self.image_width))(mask)
 
         ##############################
         # Augment image only
         ##############################
 
         # Apply sharpening or smoothing to the
-        if random.random() < 0.5:
-            if random.random() < 0.5:
-                img = img.filter(ImageFilter.SHARPEN)  # 50% sharpening
-            else:
-                img = img.filter(ImageFilter.SMOOTH)  # 50% smoothing
+        if random.random() < 0.4:
+            img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0, 1)))
+
+        # sharpening
+        if random.random() < 0.2:
+            img = ImageEnhance.Sharpness(img).enhance(random.uniform(0, 1))
 
         # Add any other custom transforms here
         # Apply color jitter to the image only
         if random.random() < 0.8:
-            color_jitter = transforms.ColorJitter(brightness=0.5, contrast=0.4, saturation=0.3, hue=0.1)
+            color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.35, saturation=0.25, hue=0.1)
             img = color_jitter(img)
 
         ##############################

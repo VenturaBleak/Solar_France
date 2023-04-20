@@ -43,7 +43,7 @@ def main():
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
-    CROPPING = False
+    CROPPING = True
 
     ############################
     # Script
@@ -58,18 +58,18 @@ def main():
     if DEVICE == "cuda":
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.02, 0.02],
-            ['Munich', 0.02, 0.02],
-            ['Heerlen_2018_HR_output', 0, 0.02],
-            ['Denmark', 0, 0.02]
+            ['France_google', 1, 1],
+            ['Munich', 1, 0],
+            ['Heerlen_2018_HR_output', 0, 0.1],
+            ['Denmark', 0, 0.1]
         ]
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.004, 0.0],
+            ['France_google', 0.001, 0.0],
             ['Munich', 0.0, 0.0],
-            ['Denmark', 0.0, 0.0],
-            ['Heerlen_2018_HR_output', 0.0, 0.001],
+            ['Denmark', 0.0, 0.001],
+            ['Heerlen_2018_HR_output', 0.0, 0.0],
             ['ZL_2018_HR_output', 0.0, 0.0]
         ]
 
@@ -198,14 +198,14 @@ def main():
     # loss_fn = IoULoss()
 
     # Tversky
-    loss_fn = TverskyLoss()
+    # loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
-    # loss_fn = DiceBCELoss()
+    loss_fn = DiceBCELoss()
 
     # Focal
-    # loss_fn = FocalLoss()3
+    # loss_fn = FocalLoss()
 
     ############################
     # Optimizer
@@ -302,10 +302,16 @@ def main():
     # Training
     ############################
 
+    # retrieve model name for saving
+    model_name = generate_model_name(segformer_arch,
+                                     loss_fn.__class__.__name__,
+                                     optimizer.__class__.__name__,
+                                     [x[0] for x in dataset_fractions])
+
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
 
-    #time all epochs
+    # Time total training time
     start_time = time.time()
 
     # Initialize an empty DataFrame to store the logs
@@ -318,19 +324,20 @@ def main():
 
     # train the model
     for epoch in range(NUM_EPOCHS):
+        # Train
         epoch_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
 
-        # validation
+        # Validate
         avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
         pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
         print(
             f"Val.Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
 
-        # Update the DataFrame with the epoch, learning rate, train_loss, and evaluation metrics
+        # Log & save the validation metrics
         log_df.loc[epoch] = [epoch, scheduler.get_last_lr()[0], epoch_loss, val_loss, f1_score, precision, recall,
                              pixel_acc, iou, specificity, bg_acc]
 
-        # Check if the current validation metric is better than the best one
+        # Saving the model, if the current validation metric is better than the best one
         if f1_score > best_val_metric:  # Change the condition if using val_loss or another metric
             best_val_metric = f1_score
 
@@ -339,23 +346,22 @@ def main():
                 "state_dict": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
             }
-            model_name = generate_model_name(segformer_arch, "TverskyLoss", "AdamW", [x[0] for x in dataset_fractions])
+
             model_path = save_checkpoint(checkpoint, model_name=model_name, parent_dir=parent_dir)
             # save some examples to a folder
             save_predictions_as_imgs(
                 val_loader, model, epoch=epoch, unnorm=unorm, model_name=model_name, folder=model_path,
-                device=DEVICE)
+                device=DEVICE, testing=False)
 
-        # save the logs after every 5 epochs
-        if epoch % 5 == 0:
-            # Save the DataFrame as a CSV file in the same folder as the model and images, using the same name
-            log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
-            log_df.to_csv(log_csv_path, index=False)
+        # Save the logs
+        log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
+        log_df.to_csv(log_csv_path, index=False)
 
     print("All epochs completed.")
 
     #time end
     end_time = time.time()
+
     # print total training time in hours, minutes, seconds
     print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
 
