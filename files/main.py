@@ -13,18 +13,19 @@ from model import (UNET,
                    PolynomialLRDecay, GradualWarmupScheduler
                    )
 from dataset import (FranceSegmentationDataset, TransformationTypes,
-                     create_train_val_splits,get_dirs_and_fractions,
-                     get_mean_std, UnNormalize)
+                     create_train_val_splits,get_dirs_and_fractions, filter_positive_images,
+                     UnNormalize, get_mean_std)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
     save_checkpoint,
-    load_checkpoint,
     get_loaders,
-    save_predictions_as_imgs,
     calculate_binary_metrics,
-    generate_model_name
+    generate_model_name,
+    visualize_sample_images,
+    save_predictions_as_imgs
 )
+from solar_snippet_v2 import ImageProcessor
 
 def main():
     ############################
@@ -44,6 +45,13 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = True
+    CALCULATE_MEAN_STD = True
+
+    # if CALCULATE_MEAN_STD == False, specify mean and std of the training dataset
+    if CALCULATE_MEAN_STD == False:
+        # specify train_mean, train_std -> has to be in this format: tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
+        train_mean = torch.tensor([0.3542, 0.3581, 0.3108])
+        train_std = torch.tensor([0.2087, 0.1924, 0.1857])
 
     ############################
     # Script
@@ -66,11 +74,11 @@ def main():
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 1, 0.0],
-            ['Munich', 0.0, 0.0],
-            ['Denmark', 0.0, 0.0],
-            ['Heerlen_2018_HR_output', 0.0, 0.0],
-            ['ZL_2018_HR_output', 0.0, 0.0]
+            ['France_google', 0.0001, 0],
+            ['Munich', 0.02, 0.02],
+            ['Denmark', 0.0, 0],
+            ['Heerlen_2018_HR_output', 0.0, 0],
+            ['ZL_2018_HR_output', 0, 0]
         ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
@@ -91,6 +99,25 @@ def main():
     assert train_images == train_masks
     assert val_images == val_masks
 
+    ############################
+    # Instantiate Snippet class
+    ############################
+    # filter only positive images
+    train_images_positive, train_masks_positive, positive_image_dirs, positive_mask_dirs = filter_positive_images(
+        train_images, train_masks, image_dirs, mask_dirs)
+
+    # assert that images and masks are identical
+    assert train_images_positive == train_masks_positive
+
+    # instantiate snippet class
+    image_processor = ImageProcessor(train_images_positive, train_masks_positive, positive_image_dirs,
+                                     positive_mask_dirs)
+    # only keep panels from those datasets
+    image_processor.filter_solar_files(["France_google"])
+
+    # ToDo: incorporate the following function into the data loader somehow
+    # image_processor.process_sample_images()
+    # exit()
 
     ############################
     # Specify initial transforms
@@ -139,8 +166,12 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
     )
-    # retrieve the mean and std of the training images
-    train_mean, train_std = get_mean_std(train_loader)
+    if CALCULATE_MEAN_STD == True:
+        # retrieve the mean and std of the training images
+        train_mean, train_std = get_mean_std(train_loader)
+
+    # specify UnNormalize() function for visualization of sample images
+    unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
 
     ############################
     # Transforms
@@ -273,30 +304,7 @@ def main():
     # Visualize sample images
     ############################
     # visualize some sample images
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    images, masks = next(iter(train_loader))
-    n_samples = BATCH_SIZE // 2
-
-    # Create a figure with multiple subplots
-    fig, axs = plt.subplots(n_samples, 2, figsize=(8, n_samples * 4))
-
-    # unnormalize
-    unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
-
-    # Iterate over the images and masks and plot them side by side
-    for i in range(n_samples):
-        img = unorm(images[i].squeeze(0))
-        img = np.transpose(img.numpy(), (1, 2, 0))
-        mask = np.squeeze(masks[i].numpy(), axis=0)
-
-        axs[i, 0].axis("off")
-        axs[i, 0].imshow(img)
-        axs[i, 1].axis("off")
-        axs[i, 1].imshow(mask, cmap="gray")
-    plt.show()
-    # exit("Visualized sample images.")
+    visualize_sample_images(train_loader, train_mean, train_std, BATCH_SIZE, unorm)
 
     ############################
     # Training
@@ -351,7 +359,7 @@ def main():
             # save some examples to a folder
             save_predictions_as_imgs(
                 val_loader, model, unnorm=unorm, model_name=model_name, folder=model_path,
-                device=DEVICE, testing=False)
+                device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
 
         # Save the logs
         log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")

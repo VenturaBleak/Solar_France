@@ -11,6 +11,14 @@ from torchvision import transforms
 
 class FranceSegmentationDataset(Dataset):
     def __init__(self, image_dirs, mask_dirs, images, masks, transform=None):
+        """
+        :
+        :param image_dirs:
+        :param mask_dirs:
+        :param images:
+        :param masks:
+        :param transform:
+        """
         self.image_dirs = image_dirs
         self.mask_dirs = mask_dirs
         self.images = images
@@ -43,7 +51,7 @@ class FranceSegmentationDataset(Dataset):
         # apply the transformations, also pass the image folder path to the apply_train_transforms function
         image, mask = self.transform((image, mask, image_dir))
 
-        return image, mask
+        return image, mask, self.images[idx]
 
 def create_train_val_splits(image_dirs, mask_dirs, fractions, val_size=0.2, random_state=42):
     # List all images and masks in the data directories
@@ -80,8 +88,6 @@ def create_train_val_splits(image_dirs, mask_dirs, fractions, val_size=0.2, rand
     else:
         train_data, val_data = train_test_split(data, test_size=val_size, random_state=random_state)
 
-
-
     # Separate the images and masks into two separate lists for each subset
     train_images, train_masks = zip(*train_data)
     val_images, val_masks = zip(*val_data)
@@ -113,6 +119,25 @@ def get_dirs_and_fractions(dataset_fractions, parent_dir):
         fractions.append(neg_fraction)
 
     return image_dirs, mask_dirs, fractions
+
+def filter_positive_images(train_images, train_masks, image_dirs, mask_dirs):
+    train_images_positive = []
+    train_masks_positive = []
+    positive_image_dirs = []
+    positive_mask_dirs = []
+
+    for image, mask in zip(train_images, train_masks):
+        for image_dir, mask_dir in zip(image_dirs, mask_dirs):
+            image_path = os.path.join(image_dir, image)
+            if os.path.exists(image_path) and 'images_positive' in image_dir:
+                train_images_positive.append(image)
+                train_masks_positive.append(mask)
+                if image_dir not in positive_image_dirs:
+                    positive_image_dirs.append(image_dir)
+                if mask_dir not in positive_mask_dirs:
+                    positive_mask_dirs.append(mask_dir)
+
+    return train_images_positive, train_masks_positive, positive_image_dirs, positive_mask_dirs
 
 class TransformationTypes:
     def __init__(self, train_mean, train_std, image_height, image_width, cropping=False):
@@ -284,7 +309,7 @@ def get_mean_std(train_loader):
     train_mean = []
     train_std = []
 
-    for batch_idx, (X, y) in enumerate(train_loader):
+    for batch_idx, (X, y, _) in enumerate(train_loader):
         numpy_image = X.numpy()
 
         batch_mean = np.mean(numpy_image, axis=(0, 2, 3))

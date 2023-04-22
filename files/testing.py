@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
+from tabulate import tabulate
 import pandas as pd
 from model import (UNET,
                    Segformer, create_segformer,
@@ -18,13 +19,13 @@ from dataset import (FranceSegmentationDataset, TransformationTypes,
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
-    save_checkpoint,
-    load_checkpoint,
     get_loaders,
     save_predictions_as_imgs,
     calculate_binary_metrics,
+    calculate_classification_metrics,
     generate_model_name
 )
+
 
 def load_model(model_name, model, parent_dir):
     model_path = os.path.join(parent_dir, "trained_models", f"{model_name}.pth.tar")
@@ -35,7 +36,7 @@ def load_model(model_name, model, parent_dir):
     print(f"=> Loaded checkpoint '{model_path}")
     return model_path
 
-def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING=False):
+def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING=False, classification=False):
     # set seed
     RANDOM_SEED = 42
 
@@ -144,19 +145,35 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
 
-    # Calculate metrics
-    avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
-
-    pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
-    print(
-        f"Test Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Pixel-Acc: {pixel_acc:.3f} | Loss: {val_loss:.4f}")
+    if classification == True:
+        # Calculate classification metrics
+        classification_metrics = calculate_classification_metrics(val_loader, model, DEVICE)
+        acc, f1, precision, recall, cm = classification_metrics
+        tn, fp, fn, tp = cm.ravel()
+        print(
+            f"Classification Metrics: Accuracy: {acc:.4f}, F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
+        # Print the confusion matrix with row and column labels
+        confusion_matrix_table = [
+            ["", "Actual"],
+            ["Predicted", "1", "0"],
+            ["1", f"TP: {tp}", f"FP: {fp}"],
+            ["0", f"FN: {fn}", f"TN: {tn}"],
+        ]
+        print(tabulate(confusion_matrix_table, tablefmt="fancy_grid"))
+    else:
+        # Calculate segmentation metrics
+        avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
+        pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
+        print(
+            f"Test Metrics: F1-Score:{f1_score:.4f} | Recall:{recall:.4f} | Precision:{precision:.4f} | Pixel-Acc: {pixel_acc:.4f} | Loss: {val_loss:.4f}")
 
     # unnormalize
     unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
 
+
     save_predictions_as_imgs(
         val_loader, model, unnorm=unorm, model_name=model_name, folder=model_folder,
-        device=DEVICE, testing=True)
+        device=DEVICE, testing=True, BATCH_SIZE=BATCH_SIZE)
 
 if __name__ == '__main__':
 
@@ -166,22 +183,24 @@ if __name__ == '__main__':
     # specify test dataset(s)
     dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0.001, 0.0],
+        # ['France_google', 0.005, 0.0],
         # ['Munich', 0.0, 0.0],
         # ['Denmark', 0.0, 0.001],
-        # ['Heerlen_2018_HR_output', 0.0, 0.0],
+        ['Heerlen_2018_HR_output', 0, 0.001],
         # ['ZL_2018_HR_output', 0, 1]
     ]
 
     # Specify Cropping or No Cropping
-    CROP = False
+    CROP = True
+    # Specify Classification or Segmentation
+    CLASSIFICATION = False
 
     # specify loss
     loss_fn = DiceBCELoss()
 
-    # train_mean, train_std -> in format tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
+    # specify train_mean, train_std -> in format tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
     train_mean = torch.tensor([0.3542, 0.3581, 0.3108])
     train_std = torch.tensor([0.2087, 0.1924, 0.1857])
 
     # run main function
-    main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROP)
+    main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROP, CLASSIFICATION)

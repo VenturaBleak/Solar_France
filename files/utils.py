@@ -4,6 +4,9 @@ from dataset import FranceSegmentationDataset
 from torch.utils.data import DataLoader
 import os
 import torch.nn.functional as F
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
+import numpy as np
+import matplotlib.pyplot as plt
 
 def generate_model_name(architecture, loss_function, optimizer, dataset_names):
     model_name = f"{architecture}_{loss_function}_{optimizer}"
@@ -21,10 +24,6 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_name=None, pa
     print(f'Best model saved as {filename}')
     return filepath
 
-def load_checkpoint(checkpoint, model, optimizer):
-    print("=> Loading checkpoint")
-    model.load_state_dict(checkpoint["state_dict"])
-
 def get_loaders(
     image_dirs,
     mask_dirs,
@@ -37,6 +36,7 @@ def get_loaders(
     val_transforms,
     num_workers=0,
     pin_memory=True,
+    # ToDo: drop last = True
 ):
     train_ds = FranceSegmentationDataset(
         image_dirs=image_dirs,
@@ -72,59 +72,43 @@ def get_loaders(
 
     return train_loader, val_loader
 
-def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda", testing=False):
-    if testing == True:
-        name_extension = "test"
-    else:
-        name_extension = "val"
+def calculate_classification_metrics(loader, model, device="cuda"):
+    """Calculate common metrics for classification.
 
-    # create a folder if not exists, cwd + folder
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-
-    # set model to eval mode
+    Args:
+        loader: DataLoader for the dataset
+        model: Model to evaluate
+        device: Device to use for evaluation
+    Returns:
+        A list of metrics
+    """
     model.eval()
-    all_images = []
-    for idx, (x, y) in enumerate(loader):
-        x = x.to(device=device)
-        with torch.no_grad():
-            preds = torch.sigmoid(model(x))
-            preds = (preds > 0.5).float()
 
-            # Move x, y, and preds back to the CPU
-            x = x.cpu()
-            y = y.cpu()
-            preds = preds.cpu()
+    true_labels = []
+    predicted_labels = []
 
-            # Unnormalize the input image
-            for i in range(x.size(0)):
-                x[i] = unnorm(x[i])
+    with torch.no_grad():
+        for data, label, image_path in loader:
+            data = data.to(device)
 
-            # Normalize the input image back to the range [0, 1]
-            x = (x - x.min()) / (x.max() - x.min())
+            scores = model(data)
+            predictions = (scores > 0).float()
+            predictions = torch.any(predictions.view(predictions.size(0), -1), dim=1).cpu().numpy()
 
-            # Repeat the single channel of y and preds 3 times to match the number of channels in x
-            y = y.repeat(1, 3, 1, 1)
-            preds = preds.repeat(1, 3, 1, 1)
+            # Extract true label from the image path
+            true_label = 1 if 'images_positive' in image_path else 0
+            true_labels.extend([true_label] * len(predictions))
+            predicted_labels.extend(predictions)
 
-            # Concatenate the image, ground truth mask, and prediction along the width dimension (dim=3)
-            combined = torch.cat((x, y, preds), dim=3)
-            all_images.append(combined)
+    acc = accuracy_score(true_labels, predicted_labels)
+    f1 = f1_score(true_labels, predicted_labels)
+    precision = precision_score(true_labels, predicted_labels)
+    recall = recall_score(true_labels, predicted_labels, zero_division=0)
+    cm = confusion_matrix(true_labels, predicted_labels)
 
-            # Break after the third batch
-            if idx == 2:
-                break
-
-    # Stack all images vertically
-    stacked_images = torch.cat(all_images, dim=2)
-
-    # specify the path to save the stacked images
-    path = os.path.join(folder, f"{model_name}_{name_extension}.png")
-    # Save the stacked images
-    torchvision.utils.save_image(stacked_images, path)
-
-    # Set the model back to train mode
     model.train()
+
+    return acc, f1, precision, recall, cm
 
 def calculate_binary_metrics(loader, model, loss_fn, device="cuda"):
     """Calculate common metrics in binary cases.
@@ -153,7 +137,7 @@ def calculate_binary_metrics(loader, model, loss_fn, device="cuda"):
     epoch_loss = 0
 
     with torch.no_grad():
-        for X, y in loader:
+        for X, y,_ in loader:
             X = X.to(device)
             y = y.float().to(device)
             preds = model(X)
@@ -252,3 +236,79 @@ class BinaryMetrics():
                       dtype=torch.float),
             y_pred)
         return [pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc]
+
+def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda",
+                             testing=False, BATCH_SIZE=16):
+    if testing == True:
+        name_extension = "test"
+    else:
+        name_extension = "val"
+
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    model.eval()
+    all_images = []
+    for idx, (x, y, _) in enumerate(loader):
+        num_images = x.size(0)
+        x = x.to(device=device)
+        with torch.no_grad():
+            preds = torch.sigmoid(model(x))
+            preds = (preds > 0.5).float()
+
+            x = x.cpu()
+            y = y.cpu()
+            preds = preds.cpu()
+
+            for i in range(x.size(0)):
+                x[i] = unnorm(x[i])
+
+            x = (x - x.min()) / (x.max() - x.min())
+
+            y = y.repeat(1, 3, 1, 1)
+            preds = preds.repeat(1, 3, 1, 1)
+
+            if num_images < BATCH_SIZE:
+                pad_size = BATCH_SIZE - num_images
+                zero_padding = torch.zeros((pad_size, 3, x.size(2), x.size(3)))
+                x = torch.cat((x, zero_padding), dim=0)
+                y = torch.cat((y, zero_padding), dim=0)
+                preds = torch.cat((preds, zero_padding), dim=0)
+
+            combined = torch.cat((x, y, preds), dim=3)
+            all_images.append(combined)
+
+            if idx == 2:
+                break
+
+    stacked_images = torch.cat(all_images, dim=2)
+
+    path = os.path.join(folder, f"{model_name}_{name_extension}.png")
+    torchvision.utils.save_image(stacked_images, path)
+
+    model.train()
+
+def visualize_sample_images(train_loader, train_mean, train_std, batch_size, unorm):
+    images, masks, _ = next(iter(train_loader))
+    n_samples = batch_size // 2
+
+    # Create a figure with multiple subplots
+    fig, axs = plt.subplots(n_samples, 3, figsize=(12, n_samples * 4))
+
+    # Iterate over the images and masks and plot them side by side
+    for i in range(n_samples):
+        img = unorm(images[i].squeeze(0))
+        img = np.transpose(img.numpy(), (1, 2, 0))
+        mask = np.squeeze(masks[i].numpy(), axis=0)
+
+        # Create an overlay of the mask on the image
+        overlay = img.copy()
+        overlay[mask == 1] = [1, 1, 1]  # Set the white pixels of the mask onto the image
+
+        axs[i, 0].axis("off")
+        axs[i, 0].imshow(img)
+        axs[i, 1].axis("off")
+        axs[i, 1].imshow(mask, cmap="gray")
+        axs[i, 2].axis("off")
+        axs[i, 2].imshow(overlay)
+    plt.show()
