@@ -46,7 +46,7 @@ def main():
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = True
     CALCULATE_MEAN_STD = False
-    ADDITIONAL_IMAGE_FRACTION = 0
+    ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
     # Script

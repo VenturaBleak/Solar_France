@@ -212,7 +212,7 @@ class TransformationTypes:
         self.image_height = image_height
         self.image_width = image_width
         self.cropping = cropping
-        self.center_crop_folders = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output", "Denmark"]
+        self.center_crop_folders = ["Heerlen_2018_HR_output", "Heerlen_2018_HR_output", "Denmark", "China"]
 
     def center_crop_image(self, img, mask, crop_width, crop_height):
         img_width, img_height = img.size
