@@ -1,57 +1,123 @@
 import os
-import torch
-from PIL import Image, ImageFilter, ImageEnhance
-from torch.utils.data import Dataset
-import torchvision.transforms as T
-import numpy as np
-import torchvision.transforms.functional as TF
 import random
+import numpy as np
+from PIL import Image, ImageFilter, ImageEnhance
 from sklearn.model_selection import train_test_split
+import torch
+from torch.utils.data import Dataset, DataLoader, Sampler
 from torchvision import transforms
 
 class FranceSegmentationDataset(Dataset):
-    def __init__(self, image_dirs, mask_dirs, images, masks, transform=None):
-        """
-        :
-        :param image_dirs:
-        :param mask_dirs:
-        :param images:
-        :param masks:
-        :param transform:
-        """
+    def __init__(self, image_dirs, mask_dirs, images, masks, transform=None, image_gen_func=None, extra_images=0):
         self.image_dirs = image_dirs
         self.mask_dirs = mask_dirs
         self.images = images
         self.masks = masks
         self.transform = transform
+        self.image_gen_func = image_gen_func
+        self.extra_images = extra_images
 
     def __len__(self):
-        return len(self.images)
+        return len(self.images) + self.extra_images
 
     def __getitem__(self, idx):
-        # Load the image and mask
-        for image_dir in self.image_dirs:
-            # specify the path to the image
-            image_path = os.path.join(image_dir, self.images[idx])
-            # check if the image exists
-            if os.path.exists(image_path):
-                # if the image exists, break the loop
-                break
+        if idx < len(self.images):
+            # Use the traditional method for loading images and masks
+            for image_dir in self.image_dirs:
+                image_path = os.path.join(image_dir, self.images[idx])
+                if os.path.exists(image_path):
+                    break
 
-        # repeat the same process for the mask
-        for mask_dir in self.mask_dirs:
-            mask_path = os.path.join(mask_dir, self.masks[idx])
-            if os.path.exists(mask_path):
-                break
+            for mask_dir in self.mask_dirs:
+                mask_path = os.path.join(mask_dir, self.masks[idx])
+                if os.path.exists(mask_path):
+                    break
 
-        # load the image and mask
-        image = Image.open(image_path).convert("RGB")
-        mask = Image.open(mask_path).convert("L")
+            image = Image.open(image_path).convert("RGB")
+            mask = Image.open(mask_path).convert("L")
 
-        # apply the transformations, also pass the image folder path to the apply_train_transforms function
+        else:
+            # Call the image generation function for additional images
+            image, mask = self.image_gen_func()
+            image_dir = "snippet"
+
         image, mask = self.transform((image, mask, image_dir))
+        return image, mask, self.images[idx] if idx < len(self.images) else f"generated_{idx - len(self.images)}"
 
-        return image, mask, self.images[idx]
+def get_loaders(
+    image_dirs,
+    mask_dirs,
+    train_images,
+    train_masks,
+    val_images,
+    val_masks,
+    batch_size,
+    train_transforms,
+    val_transforms,
+    num_workers=0,
+    pin_memory=True,
+    image_gen_func=None,
+    extra_images=0,
+    train_sampler = None,
+    random_seed = 42
+):
+
+    train_ds = FranceSegmentationDataset(
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
+        images=train_images,
+        masks=train_masks,
+        transform=train_transforms,
+        image_gen_func=image_gen_func,
+        extra_images=extra_images
+    )
+
+    if train_sampler is not None:
+        train_sampler = CustomSampler(len(train_ds.images), train_ds.extra_images)
+
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=False,
+        sampler=train_sampler,
+        drop_last=True
+    )
+
+    val_ds = FranceSegmentationDataset(
+        image_dirs=image_dirs,
+        mask_dirs=mask_dirs,
+        images=val_images,
+        masks=val_masks,
+        transform=val_transforms,
+    )
+
+    val_loader = DataLoader(
+        val_ds,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        shuffle=False,
+    )
+
+    return train_loader, val_loader
+
+class CustomSampler(Sampler):
+    def __init__(self, num_original, num_additional, generator=None, random_seed=42):
+        self.num_original = num_original
+        self.num_additional = num_additional
+        self.generator = generator or torch.Generator().manual_seed(random_seed)
+
+    def __iter__(self):
+        original_indices = torch.arange(self.num_original)
+        additional_indices = torch.arange(self.num_original, self.num_original + self.num_additional)
+        all_indices = torch.cat([original_indices, additional_indices])
+        shuffled_indices = torch.randperm(len(all_indices), generator=self.generator)
+        return iter(all_indices[shuffled_indices])
+
+    def __len__(self):
+        return self.num_original + self.num_additional
 
 def create_train_val_splits(image_dirs, mask_dirs, fractions, val_size=0.2, random_state=42):
     # List all images and masks in the data directories
@@ -186,8 +252,10 @@ class TransformationTypes:
             else:
                 img, mask = self.random_crop_image(img, mask, crop_width, crop_height)
 
-            img = transforms.Resize((self.image_height, self.image_width))(img)
-            mask = transforms.Resize((self.image_height, self.image_width))(mask)
+            img = transforms.Resize((self.image_height, self.image_width),
+                                    interpolation=transforms.InterpolationMode.BICUBIC)(img)
+            mask = transforms.Resize((self.image_height, self.image_width),
+                                     interpolation=transforms.InterpolationMode.NEAREST)(mask)
 
         return img, mask
 
@@ -233,8 +301,10 @@ class TransformationTypes:
         img, mask, img_folder = img_mask
 
         # Resize the image and mask
-        img = transforms.Resize((self.image_height, self.image_width))(img)
-        mask = transforms.Resize((self.image_height, self.image_width))(mask)
+        img = transforms.Resize((self.image_height, self.image_width), interpolation = transforms.InterpolationMode.BICUBIC)(img)
+        mask = transforms.Resize((self.image_height, self.image_width), interpolation = transforms.InterpolationMode.NEAREST)(mask)
+        # uncomment to assert that the mask is binary
+        # check_non_binary_pixels(mask, "resize")
 
         # Apply cropping
         img, mask = self.apply_cropping(img, mask, img_folder)
@@ -244,17 +314,17 @@ class TransformationTypes:
         ##############################
 
         # Apply sharpening or smoothing to the
-        if random.random() < 0.4:
+        if random.random() < 0.3:
             img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0, 1)))
 
         # sharpening
-        if random.random() < 0.2:
+        if random.random() < 0.3:
             img = ImageEnhance.Sharpness(img).enhance(random.uniform(0, 1))
 
         # Add any other custom transforms here
         # Apply color jitter to the image only
         if random.random() < 0.8:
-            color_jitter = transforms.ColorJitter(brightness=0.4, contrast=0.35, saturation=0.25, hue=0.1)
+            color_jitter = transforms.ColorJitter(brightness=0.45, contrast=0.35, saturation=0.25, hue=0.1)
             img = color_jitter(img)
 
         ##############################
@@ -262,13 +332,21 @@ class TransformationTypes:
         ##############################
 
         # Zooming in and out by max x%
-        ZOOM = 0.1 # 0.1 = 10% -> 10% zoom in or out
-        if random.random() < 0.5:
-            zoom_factor = random.uniform(1 - ZOOM, 1 + ZOOM)
-            zoom_transform = transforms.RandomResizedCrop((self.image_height, self.image_width), scale=(zoom_factor, zoom_factor),
-                                                          ratio=(1, 1))
-            img = zoom_transform(img)
-            mask = zoom_transform(mask)
+        ZOOM = 0.1  # 0.1 = 10% -> 10% zoom in or out
+        PADDING = int(max(self.image_height, self.image_width) * ZOOM)
+        if random.random() < 0.8:
+            # Resize the image and mask with some padding
+            img = transforms.Resize((self.image_height + PADDING, self.image_width + PADDING),
+                                    interpolation=transforms.InterpolationMode.BICUBIC)(img)
+            mask = transforms.Resize((self.image_height + PADDING, self.image_width + PADDING),
+                                     interpolation=transforms.InterpolationMode.NEAREST)(mask)
+
+            # Apply the same random crop to both the image and the mask
+            i, j, h, w = transforms.RandomCrop.get_params(img, output_size=(self.image_height, self.image_width))
+            img = transforms.functional.crop(img, i, j, h, w)
+            mask = transforms.functional.crop(mask, i, j, h, w)
+            # uncomment to assert that the mask is binary
+            # check_non_binary_pixels(mask, "zoom")
 
         # Apply random horizontal and vertical flips
         if random.random() < 0.5:
@@ -285,12 +363,21 @@ class TransformationTypes:
         # specify hyperparameters for rotation and translation
         ROTATION = 50
         TRANSLATION = 0.4
-        # apply transforms
+
+        # Generate random parameters for the affine transformation
         angle = random.uniform(-ROTATION, ROTATION)
         translate_x = random.uniform(-TRANSLATION * self.image_width, TRANSLATION * self.image_width)
         translate_y = random.uniform(-TRANSLATION * self.image_height, TRANSLATION * self.image_height)
-        img = TF.affine(img, angle, (translate_x, translate_y), 1, 0)
-        mask = TF.affine(mask, angle, (translate_x, translate_y), 1, 0)
+
+        # Apply the affine transformation to the image with the same parameters
+        img = transforms.functional.affine(img, angle, (translate_x, translate_y), 1, 0,
+                                           interpolation=transforms.InterpolationMode.BICUBIC)
+
+        # Apply the affine transformation to the mask with the same parameters
+        mask = transforms.functional.affine(mask, angle, (translate_x, translate_y), 1, 0,
+                                            interpolation=transforms.InterpolationMode.NEAREST)
+        # uncomment to assert that the mask is binary
+        #check_non_binary_pixels(mask, "affine")
 
         # transform to tensor
         img = transforms.ToTensor()(img)
@@ -300,6 +387,12 @@ class TransformationTypes:
         img = transforms.Normalize(mean=self.train_mean, std=self.train_std)(img)
 
         return img, mask
+
+def check_non_binary_pixels(mask,transformation):
+    tensor_mask = transforms.ToTensor()(mask)
+    unique_values = torch.unique(tensor_mask)
+    for value in unique_values:
+        assert value == 0 or value == 1, f"After transformation: {transformation}; Mask contains non-binary value: {value}"
 
 def get_mean_std(train_loader):
     """Function to calculate the mean and standard deviation of the training set.

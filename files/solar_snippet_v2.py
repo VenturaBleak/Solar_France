@@ -143,39 +143,38 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
     cropped_angle = find_angle(cropped_mask)
     rotation = np.degrees(target_angle - cropped_angle)
 
+    #############################
+    # Apply random transformations
+    #############################
     # Introduce randomness to the paste angle
     rotation += random.randint(-10, 10)
 
     # Rotate the cropped image and mask to align with the target mask
     cropped_image = cropped_image.rotate(rotation, resample=Image.BICUBIC, expand=True)
-    cropped_mask = cropped_mask.rotate(rotation, resample=Image.BICUBIC, expand=True)
-
-    # Rotate the cropped image and mask to align with the target mask
-    cropped_image = cropped_image.rotate(rotation, resample=Image.BICUBIC, expand=True)
-    cropped_mask = cropped_mask.rotate(rotation, resample=Image.BICUBIC, expand=True)
+    cropped_mask = cropped_mask.rotate(rotation, resample=Image.NEAREST, expand=True)
 
     # Apply random brightness to the cropped image
-    if random.random() < 0.2:
+    if random.random() < 0.3:
         brightness = ImageEnhance.Brightness(cropped_image)
         cropped_image = brightness.enhance(random.uniform(0.9, 1.1))
 
     # Apply random contrast to the cropped image
-    if random.random() < 0.2:
+    if random.random() < 0.3:
         contrast = ImageEnhance.Contrast(cropped_image)
         cropped_image = contrast.enhance(random.uniform(0.9, 1.1))
 
     # Apply random hue to the cropped image
-    if random.random() < 0.2:
+    if random.random() < 0.3:
         hue_factor = random.uniform(-0.05, 0.05)
         cropped_image = ImageEnhance.Color(cropped_image).enhance(1 + hue_factor)
 
     # Apply random zoom to the cropped image & mask
-    if random.random() < 0.2:
+    if random.random() < 0.3:
         zoom_factor = random.uniform(0.85, 1.1)
         resized_image_size = tuple([int(dim * zoom_factor) for dim in cropped_image.size])
         resized_mask_size = tuple([int(dim * zoom_factor) for dim in cropped_mask.size])
         cropped_image = cropped_image.resize(resized_image_size, resample=Image.BICUBIC)
-        cropped_mask = cropped_mask.resize(resized_mask_size, resample=Image.BICUBIC)
+        cropped_mask = cropped_mask.resize(resized_mask_size, resample=Image.NEAREST)
 
     # Apply Gaussian blur or sharpening to the cropped image
     if random.random() < 0.3:
@@ -196,7 +195,6 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
     target_mask.paste(cropped_mask, (paste_x, paste_y), mask=cropped_mask)
 
     return target_mask
-
 
 def modify_images(source_image, source_mask, target_image, target_mask):
     """
@@ -277,13 +275,13 @@ class ImageProcessor:
         index = random.randint(0, len(self.solar_image_files) - 1)
         solar_image_path = self.solar_image_files[index]
         solar_mask_path = self.solar_mask_files[index]
-        print(solar_image_path, solar_mask_path)
+        # print(solar_image_path, solar_mask_path)
 
         # Get the building image and mask filenames
         index = random.randint(0, len(self.building_image_files) - 1)
         building_image_path = self.building_image_files[index]
         building_mask_path = self.building_mask_files[index]
-        print(building_image_path, building_mask_path)
+        # print(building_image_path, building_mask_path)
 
         source_image = Image.open(solar_image_path).convert("RGB")
         source_mask = Image.open(solar_mask_path).convert("L")
@@ -293,10 +291,11 @@ class ImageProcessor:
         try:
             modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image,
                                                                         target_mask)
-            modified_target_image.show(), modified_target_mask.show()
+            # modified_target_image.show(), modified_target_mask.show()
         except ValueError as e:
             print(e)
 
+        return modified_target_image, modified_target_mask
 
 if __name__ == "__main__":
     parent_dir = os.path.dirname(os.getcwd())
@@ -308,4 +307,5 @@ if __name__ == "__main__":
 
     image_processor = ImageProcessor(train_images_positive, train_masks_positive, [positive_image_dir],
                                      [positive_mask_dir])
-    image_processor.process_sample_images()
+    image, mask = image_processor.process_sample_images()
+    image.show(), mask.show()

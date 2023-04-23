@@ -1,12 +1,11 @@
 import torch
 import torchvision
 from dataset import FranceSegmentationDataset
-from torch.utils.data import DataLoader
 import os
-import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 def generate_model_name(architecture, loss_function, optimizer, dataset_names):
     model_name = f"{architecture}_{loss_function}_{optimizer}"
@@ -24,53 +23,36 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_name=None, pa
     print(f'Best model saved as {filename}')
     return filepath
 
-def get_loaders(
-    image_dirs,
-    mask_dirs,
-    train_images,
-    train_masks,
-    val_images,
-    val_masks,
-    batch_size,
-    train_transforms,
-    val_transforms,
-    num_workers=0,
-    pin_memory=True,
-    # ToDo: drop last = True
-):
-    train_ds = FranceSegmentationDataset(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        images=train_images,
-        masks=train_masks,
-        transform=train_transforms,
-    )
+def count_samples_in_loader(loader):
+    total_samples = 0
+    for images, masks, _ in loader:
+        total_samples += images.shape[0]
+    return total_samples
 
-    train_loader = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=True,
-    )
+def visualize_sample_images(train_loader, train_mean, train_std, batch_size, unorm):
+    images, masks, _ = next(iter(train_loader))
+    n_samples = batch_size // 2
 
-    val_ds = FranceSegmentationDataset(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        images=val_images,
-        masks=val_masks,
-        transform=val_transforms,
-    )
+    # Create a figure with multiple subplots
+    fig, axs = plt.subplots(n_samples, 3, figsize=(12, n_samples * 4))
 
-    val_loader = DataLoader(
-        val_ds,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        shuffle=False,
-    )
+    # Iterate over the images and masks and plot them side by side
+    for i in range(n_samples):
+        img = unorm(images[i].squeeze(0))
+        img = np.transpose(img.numpy(), (1, 2, 0))
+        mask = np.squeeze(masks[i].numpy(), axis=0)
 
-    return train_loader, val_loader
+        # Create an overlay of the mask on the image
+        overlay = img.copy()
+        overlay[mask == 1] = [1, 1, 1]  # Set the white pixels of the mask onto the image
+
+        axs[i, 0].axis("off")
+        axs[i, 0].imshow(img)
+        axs[i, 1].axis("off")
+        axs[i, 1].imshow(mask, cmap="gray")
+        axs[i, 2].axis("off")
+        axs[i, 2].imshow(overlay)
+    plt.show()
 
 def calculate_classification_metrics(loader, model, device="cuda"):
     """Calculate common metrics for classification.
@@ -110,77 +92,48 @@ def calculate_classification_metrics(loader, model, device="cuda"):
 
     return acc, f1, precision, recall, cm
 
-def calculate_binary_metrics(loader, model, loss_fn, device="cuda"):
-    """Calculate common metrics in binary cases.
-    binary metrics: pixel accuracy, iou, precision, specificity, recall
-    pixel accuracy = (TP + TN) / (TP + TN + FP + FN) -> intuition: how many pixels are correctly classified
-    iou = TP / (TP + FP + FN) -> intuition: how many pixels are correctly classified as foreground
-    precision = TP / (TP + FP) -> intuition:
-    specificity = TN / (TN + FP) -> intuition:
-    recall = TP / (TP + FN) -> intuition:
-
-    Inspired by the following GitHub repository:
-    Link: https://github.com/hsiangyuzhao/Segmentation-Metrics-PyTorch/blob/master/metric.py
-
-    Args:
-        :param loader: DataLoader for the dataset
-        :param model: Model to evaluate
-        :param device: Device to use for evaluation
-    Returns:
-        :return: A list of metrics
-        """
-    metrics_calculator = BinaryMetrics()
-    model.eval()
-
-    total_metrics = [0, 0, 0, 0, 0, 0, 0]
-
-    epoch_loss = 0
-
-    with torch.no_grad():
-        for X, y,_ in loader:
-            X = X.to(device)
-            y = y.float().to(device)
-            preds = model(X)
-            loss = loss_fn(preds, y)
-            preds = torch.sigmoid(preds)
-            preds = (preds > 0.5).float()
-
-            epoch_loss += loss.item()
-            metrics = metrics_calculator(y, preds)
-            total_metrics = [m + n for m, n in zip(total_metrics, metrics)]
-
-    # calculate average metrics
-    num_batches = len(loader)
-    avg_metrics = [metric / num_batches for metric in total_metrics]
-
-    # calculate average epoch loss
-    epoch_loss = epoch_loss / num_batches
-    avg_metrics.append(epoch_loss)
-
-    model.train()
-
-    return avg_metrics
-
 class BinaryMetrics():
-    r"""Calculate common metrics in binary cases.
+    """Calculate common metrics in binary cases.
     In binary cases it should be noted that y_pred shape shall be like (N, 1, H, W), or an assertion
     error will be raised.
     Also this calculator provides the function to calculate specificity, also known as true negative
     rate, as specificity/TPR is meaningless in multiclass cases.
     """
-
-    def __init__(self, eps=1e-5):
+    def __init__(self, eps=1e-8):
         # epsilon to avoid zero division error
         self.eps = eps
 
-    def _calculate_overlap_metrics(self, gt, pred):
-        output = pred.view(-1, )
+        # Initialize the self.metrics dictionary with None values
+        self.metrics = {
+            "val_loss": None,
+            "balanced_acc": None,
+            "pixel_acc": None,
+            "iou": None,
+            "f1_score": None,
+            "precision": None,
+            "recall": None,
+            "specificity": None,
+        }
+
+    def __call__(self, y_true, y_pred):
+        """Calculate overlap metrics.
+        :param gt: ground truth
+        :param pred: prediction
+        """
+        # Unit Test: asert y_pred.shape[1] == 1, 'Predictions must contain only one channel' \
+        assert y_pred.shape[1] == 1, 'Predictions must contain only one channel' \
+                                     ' when performing binary segmentation'
+
+        # Flatten the tensors
+        gt = y_true.to(y_pred.device, dtype=torch.float)
+        pred = y_pred.view(-1, )
         target = gt.view(-1, ).float()
 
-        tp = torch.sum(output * target)  # TP
-        fp = torch.sum(output * (1 - target))  # FP
-        fn = torch.sum((1 - output) * target)  # FN
-        tn = torch.sum((1 - output) * (1 - target))  # TN
+        # Calculate the confusion matrix
+        tp = torch.sum(pred * target)  # TP
+        fp = torch.sum(pred * (1 - target))  # FP
+        fn = torch.sum((1 - pred) * target)  # FN
+        tn = torch.sum((1 - pred) * (1 - target))  # TN
 
         #     Pixel Accuracy: (TP + TN) / (TP + TN + FP + FN)
         #     The proportion of correctly classified pixels (both foreground and background) out of the total number of pixels.
@@ -192,50 +145,87 @@ class BinaryMetrics():
         # Intuition: A higher IoU means better identification of the foreground class.
         iou = (tp + self.eps) / (tp + fp + fn + self.eps)
 
-        #     Specificity: TN / (TN + FP)
+        #     Specificity: TN / (TN + FP) -> also called true negative rate or background accuracy
         #     The proportion of true negative pixels (correctly classified background pixels) out of all TN and FP pixels.
         #     Intuition: A higher specificity means better identification of the background class.
-        precision = (tp + self.eps) / (tp + fp + self.eps)
+        specificity = (tn + self.eps) / (tn + fp + self.eps)
 
         #     Precision: TP / (TP + FP)
         #     The proportion of true positive pixels (correctly classified foreground pixels) out of all predicted positive pixels (both TP and FP).
         #     Intuition: A higher precision means fewer false positives.
-        recall = (tp + self.eps) / (tp + fn + self.eps)
+        precision = (tp + self.eps) / (tp + fp + self.eps)
 
         #     Recall: TP / (TP + FN) -> also called foreground accuracy
         #     The proportion of true positive pixels (correctly classified foreground pixels) out of all actual positive pixels (both TP  and FN).
         #     Intuition: A higher recall means better identification of the foreground class.
-        specificity = (tn + self.eps) / (tn + fp + self.eps)
+        recall = (tp + self.eps) / (tp + fn + self.eps)
 
         #     F1 Score: 2 * (Precision * Recall) / (Precision + Recall)
         #     A measure of the balance between precision and recall.
         #     Intuition: A higher F1 score means better overlap between the predicted segmentation and the ground truth segmentation.
         f1_score = 2 * (precision * recall) / (precision + recall + self.eps)
 
-        #     Background Accuracy: TN / (TN + FP)
-        #     The proportion of true negative pixels (correctly classified background pixels) out of all TN and FP pixels.
-        #     Intuition: A higher specificity means better identification of the background class.
-        bg_acc = tn / (tn + fp + self.eps)
+        #   Balanced Accuracy: (Recall + Background Accuracy) / 2
+        #   A measure of the balance between recall and background accuracy.
+        #   Intuition: A higher balanced accuracy means better overlap between the predicted segmentation and the ground truth segmentation.
+        #   Deals with the issue when there is only background in the ground truth segmentation.
+        balanced_acc = (recall + specificity) / 2
 
-        # convert to numpy & put on device -> cpu
-        pixel_acc = pixel_acc.cpu().numpy()
-        iou = iou.cpu().numpy()
-        precision = precision.cpu().numpy()
-        specificity = specificity.cpu().numpy()
-        recall = recall.cpu().numpy()
-        f1_score = f1_score.cpu().numpy()
-        bg_acc = bg_acc.cpu().numpy()
+        # store metrics in dict
+        self.metrics = {
+            "balanced_acc": balanced_acc,
+            "pixel_acc": pixel_acc,
+            "iou": iou,
+            "f1_score": f1_score,
+            "precision": precision,
+            "recall": recall,
+            "specificity": specificity,
+        }
 
-        return pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc
+        return self.metrics
 
-    def __call__(self, y_true, y_pred):
-        assert y_pred.shape[1] == 1, 'Predictions must contain only one channel' \
-                                     ' when performing binary segmentation'
-        pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc = self._calculate_overlap_metrics(
-            y_true.to(y_pred.device,
-                      dtype=torch.float),
-            y_pred)
-        return [pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc]
+    def calculate_binary_metrics(self, loader, model, loss_fn, device="cuda"):
+        model.eval()
+
+        total_metrics = defaultdict(float)
+        epoch_loss = 0
+        num_images = 0
+
+        with torch.no_grad():
+            for X, y, _ in loader:
+                X = X.to(device)
+                y = y.float().to(device)
+                preds = model(X)
+                loss = loss_fn(preds, y)
+                preds = torch.sigmoid(preds)
+                preds = (preds > 0.5).float()
+
+                # calculate metrics
+                metrics = self(y, preds)
+                for metric_name, metric_value in metrics.items():
+                    total_metrics[metric_name] += metric_value.item()
+
+                # calculate epoch loss
+                batch_size = X.size(0)
+                epoch_loss += loss.item() * batch_size
+                num_images += batch_size
+
+        # Calculate average metrics
+        num_batches = len(loader)
+        avg_metrics = {name: (value / num_batches) for name, value in total_metrics.items()}
+
+        # Calculate average loss per image
+        avg_loss_per_image = epoch_loss / num_images
+        avg_metrics["val_loss"] = avg_loss_per_image
+
+        model.train()
+
+        return avg_metrics
+
+    def update_log_df(self, log_df, metric_dict, epoch, train_loss, scheduler):
+        new_row = {"epoch": epoch, "learning_rate": scheduler.get_last_lr()[0], "train_loss": train_loss, **metric_dict}
+        log_df.loc[len(log_df)] = new_row
+        return log_df
 
 def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda",
                              testing=False, BATCH_SIZE=16):
@@ -287,28 +277,3 @@ def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_im
     torchvision.utils.save_image(stacked_images, path)
 
     model.train()
-
-def visualize_sample_images(train_loader, train_mean, train_std, batch_size, unorm):
-    images, masks, _ = next(iter(train_loader))
-    n_samples = batch_size // 2
-
-    # Create a figure with multiple subplots
-    fig, axs = plt.subplots(n_samples, 3, figsize=(12, n_samples * 4))
-
-    # Iterate over the images and masks and plot them side by side
-    for i in range(n_samples):
-        img = unorm(images[i].squeeze(0))
-        img = np.transpose(img.numpy(), (1, 2, 0))
-        mask = np.squeeze(masks[i].numpy(), axis=0)
-
-        # Create an overlay of the mask on the image
-        overlay = img.copy()
-        overlay[mask == 1] = [1, 1, 1]  # Set the white pixels of the mask onto the image
-
-        axs[i, 0].axis("off")
-        axs[i, 0].imshow(img)
-        axs[i, 1].axis("off")
-        axs[i, 1].imshow(mask, cmap="gray")
-        axs[i, 2].axis("off")
-        axs[i, 2].imshow(overlay)
-    plt.show()

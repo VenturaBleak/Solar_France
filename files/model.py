@@ -105,6 +105,18 @@ ALPHA = 0.5
 BETA = 0.5
 
 class TverskyLoss(nn.Module):
+    """
+    The Tversky loss takes two parameters, alpha and beta,
+    which control the balance between false positives (FP) and false negatives (FN).
+    When alpha = beta = 0.5, the Tversky loss becomes the Dice loss,
+    and when alpha = beta = 1, it becomes the Jaccard loss.
+
+    The Tversky loss can have a value between 0 and 1+,
+    where 0 indicates a perfect match between the predicted segmentation and the ground truth,
+    and 1 indicates no overlap.
+    Depending on the values of alpha, beta, and smooth, the Tversky loss can also have values greater than 1,
+    as there is no strict upper bound for the loss.
+    """
     def __init__(self, weight=None, size_average=True):
         super(TverskyLoss, self).__init__()
 
@@ -176,8 +188,6 @@ class PolynomialLRDecay(_LRScheduler):
     def get_last_lr(self):
         self._last_lr = self.get_lr()
         return self._last_lr
-
-
 
 # Warmup Scheduler
 # code taken from: https://www.kaggle.com/datasets/aryankhatana/pytorch-warmup-scheduler

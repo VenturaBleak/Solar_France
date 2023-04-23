@@ -6,25 +6,29 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
-from tabulate import tabulate
 import pandas as pd
 from model import (UNET,
                    Segformer, create_segformer,
                    DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
                    PolynomialLRDecay, GradualWarmupScheduler
                    )
-from dataset import (FranceSegmentationDataset, TransformationTypes,
-                     create_train_val_splits,get_dirs_and_fractions,
-                     get_mean_std, UnNormalize)
+from dataset import (FranceSegmentationDataset, TransformationTypes, get_loaders,
+                     create_train_val_splits,get_dirs_and_fractions, filter_positive_images,
+                     UnNormalize, get_mean_std)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
-    get_loaders,
+    save_checkpoint,
+    BinaryMetrics,
+    generate_model_name,
+    visualize_sample_images,
     save_predictions_as_imgs,
-    calculate_binary_metrics,
-    calculate_classification_metrics,
-    generate_model_name
+    count_samples_in_loader,
+    calculate_classification_metrics
 )
+from solar_snippet_v2 import ImageProcessor
+from tabulate import tabulate
+
 
 
 def load_model(model_name, model, parent_dir):
@@ -103,9 +107,7 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
         transform=inital_transforms,
     )
     assert (len(train_ds) + len(val_ds)) == (total_selected_images*2)
-    print(f"Total number of images: {total_selected_images}, "
-          f"of which {len(train_ds)} are training images and {len(val_ds)} are validation images.")
-    del val_ds, train_ds
+
 
     ############################
     # Transforms
@@ -145,6 +147,11 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
 
+    print(f"Total number of images: {total_selected_images}, "
+          f"of which {len(train_ds)} are training images and {len(val_ds)} are validation images.")
+    del val_ds, train_ds
+
+    # Evaluate: Classification OR Segmentation
     if classification == True:
         # Calculate classification metrics
         classification_metrics = calculate_classification_metrics(val_loader, model, DEVICE)
@@ -162,14 +169,16 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
         print(tabulate(confusion_matrix_table, tablefmt="fancy_grid"))
     else:
         # Calculate segmentation metrics
-        avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
-        pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
+        binary_metrics = BinaryMetrics()
+        metric_dict = binary_metrics.calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
         print(
-            f"Test Metrics: F1-Score:{f1_score:.4f} | Recall:{recall:.4f} | Precision:{precision:.4f} | Pixel-Acc: {pixel_acc:.4f} | Loss: {val_loss:.4f}")
+            f"Test.Metrics: Loss: {metric_dict['val_loss']:.4f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | "
+            f"F1-Score:{metric_dict['f1_score']:.3f} | Precision:{metric_dict['precision']:.3f} | "
+            f"Recall:{metric_dict['recall']:.3f}"
+        )
 
     # unnormalize
     unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
-
 
     save_predictions_as_imgs(
         val_loader, model, unnorm=unorm, model_name=model_name, folder=model_folder,
@@ -178,12 +187,12 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
 if __name__ == '__main__':
 
     # specify model name
-    model_name = "B0_DiceBCELoss_AdamW_France_google_Munich_Denmark_Heerlen_2018_HR_output_ZL_2018_HR_output"
+    model_name = "B0_TverskyLoss_AdamW_France_google_Munich_Denmark_Heerlen_2018_HR_output_ZL_2018_HR_output"
 
     # specify test dataset(s)
     dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        # ['France_google', 0.005, 0.0],
+        # ['France_google', 0.002, 0.0],
         # ['Munich', 0.0, 0.0],
         # ['Denmark', 0.0, 0.001],
         ['Heerlen_2018_HR_output', 0, 0.001],
@@ -196,7 +205,7 @@ if __name__ == '__main__':
     CLASSIFICATION = False
 
     # specify loss
-    loss_fn = DiceBCELoss()
+    loss_fn = IoULoss()
 
     # specify train_mean, train_std -> in format tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
     train_mean = torch.tensor([0.3542, 0.3581, 0.3108])

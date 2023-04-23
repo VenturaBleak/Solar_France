@@ -12,18 +12,18 @@ from model import (UNET,
                    DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
                    PolynomialLRDecay, GradualWarmupScheduler
                    )
-from dataset import (FranceSegmentationDataset, TransformationTypes,
+from dataset import (FranceSegmentationDataset, TransformationTypes, get_loaders,
                      create_train_val_splits,get_dirs_and_fractions, filter_positive_images,
                      UnNormalize, get_mean_std)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
     save_checkpoint,
-    get_loaders,
-    calculate_binary_metrics,
     generate_model_name,
     visualize_sample_images,
-    save_predictions_as_imgs
+    save_predictions_as_imgs,
+    count_samples_in_loader,
+    BinaryMetrics
 )
 from solar_snippet_v2 import ImageProcessor
 
@@ -31,7 +31,7 @@ def main():
     ############################
     # Hyperparameters
     ############################
-    RANDOM_SEED = 42
+    RANDOM_SEED = 90
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
@@ -45,13 +45,8 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = True
-    CALCULATE_MEAN_STD = True
-
-    # if CALCULATE_MEAN_STD == False, specify mean and std of the training dataset
-    if CALCULATE_MEAN_STD == False:
-        # specify train_mean, train_std -> has to be in this format: tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
-        train_mean = torch.tensor([0.3542, 0.3581, 0.3108])
-        train_std = torch.tensor([0.2087, 0.1924, 0.1857])
+    CALCULATE_MEAN_STD = False
+    ADDITIONAL_IMAGE_FRACTION = 0
 
     ############################
     # Script
@@ -74,8 +69,8 @@ def main():
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.0001, 0],
-            ['Munich', 0.02, 0.02],
+            ['France_google', 0.002, 0],
+            ['Munich', 0.0, 0.0],
             ['Denmark', 0.0, 0],
             ['Heerlen_2018_HR_output', 0.0, 0],
             ['ZL_2018_HR_output', 0, 0]
@@ -95,7 +90,7 @@ def main():
         random_state=RANDOM_SEED,
     )
 
-    # assert that images and masks are identical
+    # Unit Test: assert that images and masks are identical
     assert train_images == train_masks
     assert val_images == val_masks
 
@@ -106,7 +101,7 @@ def main():
     train_images_positive, train_masks_positive, positive_image_dirs, positive_mask_dirs = filter_positive_images(
         train_images, train_masks, image_dirs, mask_dirs)
 
-    # assert that images and masks are identical
+    # Unit Test: assert that images and masks are identical
     assert train_images_positive == train_masks_positive
 
     # instantiate snippet class
@@ -115,10 +110,6 @@ def main():
     # only keep panels from those datasets
     image_processor.filter_solar_files(["France_google"])
 
-    # ToDo: incorporate the following function into the data loader somehow
-    # image_processor.process_sample_images()
-    # exit()
-
     ############################
     # Specify initial transforms
     ############################
@@ -126,10 +117,8 @@ def main():
     inital_transforms = transforms.Lambda(transformations.apply_initial_transforms)
 
     ############################
-    # Check data loading is correct
+    # Unit Test: assert that the number of images and masks are the same
     ############################
-
-    # assert that the number of images and masks are the same
     train_ds = FranceSegmentationDataset(
         image_dirs=image_dirs,
         mask_dirs=mask_dirs,
@@ -145,30 +134,31 @@ def main():
         transform=inital_transforms,
     )
     assert (len(train_ds) + len(val_ds)) == total_selected_images
-    print(f"Total number of images: {total_selected_images}, "
-          f"of which {len(train_ds)} are training images and {len(val_ds)} are validation images.")
-    del val_ds, train_ds
 
     ############################
     # Get mean and std of training set
     ############################
-    # Get loaders
-    train_loader, val_loader = get_loaders(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        train_images=train_images,
-        train_masks=train_masks,
-        val_images=val_images,
-        val_masks=val_masks,
-        batch_size=BATCH_SIZE,
-        train_transforms=inital_transforms,
-        val_transforms=inital_transforms,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-    )
     if CALCULATE_MEAN_STD == True:
+        # Get loaders
+        train_loader, val_loader = get_loaders(
+            image_dirs=image_dirs,
+            mask_dirs=mask_dirs,
+            train_images=train_images,
+            train_masks=train_masks,
+            val_images=val_images,
+            val_masks=val_masks,
+            batch_size=BATCH_SIZE,
+            train_transforms=inital_transforms,
+            val_transforms=inital_transforms,
+            num_workers=NUM_WORKERS,
+            pin_memory=PIN_MEMORY,
+        )
         # retrieve the mean and std of the training images
         train_mean, train_std = get_mean_std(train_loader)
+    else:
+        # specify train_mean, train_std -> has to be in this format: tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
+        train_mean = torch.tensor([0.3542, 0.3581, 0.3108])
+        train_std = torch.tensor([0.2087, 0.1924, 0.1857])
 
     # specify UnNormalize() function for visualization of sample images
     unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
@@ -183,20 +173,33 @@ def main():
     ############################
     # Data Loaders
     ############################
-    # Get loaders
+    # Calculate the number of additional images to be generated
+    extra_images = int(len(train_images) * ADDITIONAL_IMAGE_FRACTION)
+
+    if ADDITIONAL_IMAGE_FRACTION > 0:
+        train_sampler = 1
+    else:
+        train_sampler = None
+
+    # Get the loaders
     train_loader, val_loader = get_loaders(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        train_images=train_images,
-        train_masks=train_masks,
-        val_images=val_images,
-        val_masks=val_masks,
-        batch_size=BATCH_SIZE,
-        train_transforms=train_transforms,
-        val_transforms=val_transforms,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
+        image_dirs,
+        mask_dirs,
+        train_images,
+        train_masks,
+        val_images,
+        val_masks,
+        BATCH_SIZE,
+        train_transforms,
+        val_transforms,
+        NUM_WORKERS,
+        PIN_MEMORY,
+        image_gen_func=lambda: image_processor.process_sample_images(),
+        extra_images=extra_images,
+        train_sampler=train_sampler,
+        random_seed=RANDOM_SEED,
     )
+
     num_batches = len(train_loader)
 
     ############################
@@ -229,11 +232,11 @@ def main():
     # loss_fn = IoULoss()
 
     # Tversky
-    # loss_fn = TverskyLoss()
+    loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
-    loss_fn = DiceBCELoss()
+    # loss_fn = DiceBCELoss()
 
     # Focal
     # loss_fn = FocalLoss()
@@ -288,10 +291,12 @@ def main():
             or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
         WARMUP_EPOCHS = WARMUP_EPOCHS * len(train_loader)
         print("Number of Warmup Batches: ", WARMUP_EPOCHS)
+        print(f'Number of total Batches: {len(train_loader) * NUM_EPOCHS}')
         IS_BATCH = True
     else:
         IS_BATCH = False
         print("Number of Warmup Epochs: ", WARMUP_EPOCHS)
+        print(f'Number of total Epochs: {NUM_EPOCHS}')
 
     # GradualWarmupScheduler
     scheduler = GradualWarmupScheduler(optimizer,
@@ -305,6 +310,15 @@ def main():
     ############################
     # visualize some sample images
     visualize_sample_images(train_loader, train_mean, train_std, BATCH_SIZE, unorm)
+
+    # Print the number of samples in the train and validation loaders
+    print(
+        f'Training samples: {len(train_images)+extra_images}'
+        f' of which {extra_images} are snippets '
+        f'| Training batches: {len(train_loader)}'
+    )
+    print(f'Validation samples: {count_samples_in_loader(val_loader)} | Validation batches: {len(val_loader)}')
+    del val_ds, train_ds
 
     ############################
     # Training
@@ -322,10 +336,11 @@ def main():
     # Time total training time
     start_time = time.time()
 
-    # Initialize an empty DataFrame to store the logs
-    log_df = pd.DataFrame(
-        columns=["epoch", "learning_rate", "train_loss", "val_loss", "val_f1-score", "val_precision", "val_recall",
-                 "val_pixel_acc", "val_iou", "val_specificity", "val_bg-acc"])
+    # instantiate BinaryMetrics class & create a dataframe to store the training metrics
+    binary_metrics = BinaryMetrics()
+    metrics_names = ["epoch", "learning_rate", "train_loss"]
+    metrics_names.extend(binary_metrics.metrics.keys())
+    log_df = pd.DataFrame(columns=metrics_names)
 
     # Initialize the best validation metric
     best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
@@ -333,21 +348,26 @@ def main():
     # train the model
     for epoch in range(NUM_EPOCHS):
         # Train
-        epoch_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
 
         # Validate
-        avg_metrics = calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
-        pixel_acc, iou, precision, specificity, recall, f1_score, bg_acc, val_loss = avg_metrics
+        metric_dict = binary_metrics.calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
+        metrics_names.extend(metric_dict.keys())
+
+        # Print the validation metrics
         print(
-            f"Val.Metrics: F1-Score:{f1_score:.3f} | Recall:{recall:.3f} | Precision:{precision:.3f} | Loss: {val_loss:.4f} | LR:{scheduler.get_last_lr()[0]:.1e}")
+            f"Val.Metrics: Loss: {metric_dict['val_loss']:.4f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | "
+            f"F1-Score:{metric_dict['f1_score']:.3f} | Precision:{metric_dict['precision']:.3f} | "
+            f"Recall:{metric_dict['recall']:.3f} | LR:{scheduler.get_last_lr()[0]:.1e}"
+        )
 
-        # Log & save the validation metrics
-        log_df.loc[epoch] = [epoch, scheduler.get_last_lr()[0], epoch_loss, val_loss, f1_score, precision, recall,
-                             pixel_acc, iou, specificity, bg_acc]
+        # Log validation metrics in a df, in the same order as the metrics_names
+        log_df = binary_metrics.update_log_df(log_df, metric_dict, epoch, train_loss, scheduler)
 
+        current_val_metric = metric_dict['balanced_acc']
         # Saving the model, if the current validation metric is better than the best one
-        if f1_score > best_val_metric:  # Change the condition if using val_loss or another metric
-            best_val_metric = f1_score
+        if current_val_metric > best_val_metric:  # Change the condition if using val_loss or another metric
+            best_val_metric = current_val_metric
 
             # save model and sample predictions
             checkpoint = {
