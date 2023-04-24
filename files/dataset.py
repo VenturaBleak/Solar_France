@@ -108,13 +108,30 @@ class CustomSampler(Sampler):
         self.generator = generator or torch.Generator().manual_seed(random_seed)
 
     def __iter__(self):
+        """
+        In PyTorch, when you use a DataLoader and iterate through it in a training loop, the DataLoader internally calls
+         the __iter__ method of its sampler at the beginning of each epoch. This behavior ensures that the dataset
+         is freshly shuffled (if the sampler is designed to shuffle the data) at the start of every epoch.
+
+        :param return: returns an iterator over the indices of the dataset.
+        """
+        # Create a tensor of original indices
         original_indices = torch.arange(self.num_original)
+
+        # Create a tensor of additional indices, using the snippet augmentation image generator
         additional_indices = torch.arange(self.num_original, self.num_original + self.num_additional)
+
+        # Concatenate the original and additional indices to create a single tensor of all indices
         all_indices = torch.cat([original_indices, additional_indices])
+
+        # Shuffle the indices using the random number generator
         shuffled_indices = torch.randperm(len(all_indices), generator=self.generator)
+
+        # Return an iterator over the shuffled indices
         return iter(all_indices[shuffled_indices])
 
     def __len__(self):
+        # Return the total number of samples in the dataset (original + additional)
         return self.num_original + self.num_additional
 
 def create_train_val_splits(image_dirs, mask_dirs, fractions, val_size=0.2, random_state=42):

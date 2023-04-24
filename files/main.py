@@ -1,5 +1,6 @@
 # libraries
 import os
+import random
 import time
 import math
 import torch
@@ -8,6 +9,7 @@ import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
 import pandas as pd
+import numpy as np
 
 # repo files
 from model import (UNET,
@@ -52,8 +54,17 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = True
-    CALCULATE_MEAN_STD = True
+    CALCULATE_MEAN_STD = False
     ADDITIONAL_IMAGE_FRACTION = 0
+
+    ############################
+    # set seeds
+    ############################
+    random.seed(RANDOM_SEED)
+    np.random.seed(RANDOM_SEED)
+    torch.cuda.manual_seed(RANDOM_SEED)
+    torch.manual_seed(RANDOM_SEED)
+    torch.backends.cudnn.deterministic = False
 
     ############################
     # Script
@@ -76,10 +87,10 @@ def main():
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.0, 0],
+            ['France_google', 0.003, 0],
             ['Munich', 0.0, 0.0],
             ['Denmark', 0.0, 0],
-            ['Heerlen_2018_HR_output', 0.0, 0.01],
+            ['Heerlen_2018_HR_output', 0.0, 0.001],
             ['ZL_2018_HR_output', 0, 0]
         ]
 
@@ -230,10 +241,10 @@ def main():
     # Loss function
     ############################
     # BCE
-    # loss_fn = nn.BCEWithLogitsLoss()
+    loss_fn = nn.BCEWithLogitsLoss()
 
     # Dice
-    # loss_fn = DiceLoss()
+    # oss_fn = DiceLoss()
 
     # IoU
     # loss_fn = IoULoss()
@@ -246,7 +257,7 @@ def main():
     # loss_fn = DiceBCELoss()
 
     # Focal
-    loss_fn = FocalLoss()
+    # loss_fn = FocalLoss()
 
     ############################
     # Optimizer
