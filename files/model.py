@@ -78,10 +78,35 @@ class IoULoss(nn.Module):
         return 1 - IoU
 
 # Focal Loss
-ALPHA = 0.8
+ALPHA = 0.98
 GAMMA = 2
 
 class FocalLoss(nn.Module):
+    """
+    Focal Loss, as described in https://arxiv.org/abs/1708.02002.
+
+    Binary Cross-Entropy (BCE):
+    BCE is a loss function used to measure the difference between predicted probabilities and true binary labels (0 or 1)
+    for each pixel. The BCE loss is low when the predicted probability is close to the ground truth label and high
+    when it's far from the ground truth label. Mathematically, the BCE loss is defined as:
+        BCE = -(y * log(p) + (1 - y) * log(1 - p)); where y is the ground truth label (0 or 1), and p is the predicted probability.
+    Intuition: BCE penalizes wrong predictions more heavily when the model is more confident in them.
+    For example, if the ground truth label is 1, and the model predicts a probability of 0.9, the BCE loss will be lower than if the model predicts a probability of 0.1.
+
+    (1 - BCE_EXP):
+    Intuition: is close to 0 for easy-to-classify pixels and close to 1 for hard-to-classify pixels.
+    This term helps adjust the contribution of hard and easy pixels to the overall loss,
+    allowing Focal Loss to focus on the hard-to-classify pixels during training, which is particularly helpful for imbalanced datasets.
+
+    Hyperparameters a & y:
+    α (alpha): This is a parameter that helps balance the importance of foreground and background classes in the
+    loss calculation. If you want to put more emphasis on the foreground class, choose an alpha value closer to 1.
+    If you want to give equal importance to both classes, choose an alpha value of 0.5.
+
+    γ (gamma): This is a parameter that controls how much the model focuses on the hard-to-classify pixels.
+    Higher gamma values make the model focus more on hard-to-classify pixels,
+    while lower gamma values treat all pixels more equally.
+    """
     def __init__(self, weight=None, size_average=True):
         super(FocalLoss, self).__init__()
 

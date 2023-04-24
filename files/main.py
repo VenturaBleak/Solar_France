@@ -23,7 +23,8 @@ from utils import (
     visualize_sample_images,
     save_predictions_as_imgs,
     count_samples_in_loader,
-    BinaryMetrics
+    BinaryMetrics,
+    update_log_df
 )
 from solar_snippet_v2 import ImageProcessor
 
@@ -232,14 +233,14 @@ def main():
     # loss_fn = IoULoss()
 
     # Tversky
-    loss_fn = TverskyLoss()
+    # loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
     # loss_fn = DiceBCELoss()
 
     # Focal
-    # loss_fn = FocalLoss()
+    loss_fn = FocalLoss()
 
     ############################
     # Optimizer
@@ -356,13 +357,13 @@ def main():
 
         # Print the validation metrics
         print(
-            f"Val.Metrics: Loss: {metric_dict['val_loss']:.4f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | "
+            f"Val.Metrics: Loss: {metric_dict['val_loss']:.4f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | Pixel-Acc:{metric_dict['pixel_acc']:.3f} | "
             f"F1-Score:{metric_dict['f1_score']:.3f} | Precision:{metric_dict['precision']:.3f} | "
             f"Recall:{metric_dict['recall']:.3f} | LR:{scheduler.get_last_lr()[0]:.1e}"
         )
 
         # Log validation metrics in a df, in the same order as the metrics_names
-        log_df = binary_metrics.update_log_df(log_df, metric_dict, epoch, train_loss, scheduler)
+        log_df = update_log_df(log_df, metric_dict, epoch, train_loss, scheduler)
 
         current_val_metric = metric_dict['balanced_acc']
         # Saving the model, if the current validation metric is better than the best one

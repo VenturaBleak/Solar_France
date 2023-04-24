@@ -40,7 +40,10 @@ def load_model(model_name, model, parent_dir):
     print(f"=> Loaded checkpoint '{model_path}")
     return model_path
 
-def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING=False, classification=False):
+def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, crop=False, classification=False,
+         probability_threshold=0.5, pixel_threshold=0.001, grid_search=False, min_probability_threshold=0.0000,
+         max_probability_threshold=0.01, incremental_probability_step=0.0002, min_pixel_threshold=0.0000,
+         max_pixel_threshold=0.01, incremental_pixel_step=0.0002):
     # set seed
     RANDOM_SEED = 42
 
@@ -112,7 +115,7 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
     ############################
     # Transforms
     ############################
-    transformations = TransformationTypes(train_mean, train_std, IMAGE_HEIGHT, IMAGE_WIDTH, cropping=CROPPING)
+    transformations = TransformationTypes(train_mean, train_std, IMAGE_HEIGHT, IMAGE_WIDTH, cropping=crop)
     train_transforms = transforms.Lambda(transformations.apply_train_transforms)
     val_transforms = transforms.Lambda(transformations.apply_val_transforms)
 
@@ -147,26 +150,64 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROPPING
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
 
-    print(f"Total number of images: {total_selected_images}, "
-          f"of which {len(train_ds)} are training images and {len(val_ds)} are validation images.")
+    print(f"Total number of testing images: {total_selected_images}")
     del val_ds, train_ds
 
     # Evaluate: Classification OR Segmentation
-    if classification == True:
-        # Calculate classification metrics
-        classification_metrics = calculate_classification_metrics(val_loader, model, DEVICE)
-        acc, f1, precision, recall, cm = classification_metrics
-        tn, fp, fn, tp = cm.ravel()
-        print(
-            f"Classification Metrics: Accuracy: {acc:.4f}, F1 Score: {f1:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}")
-        # Print the confusion matrix with row and column labels
-        confusion_matrix_table = [
-            ["", "Actual"],
-            ["Predicted", "1", "0"],
-            ["1", f"TP: {tp}", f"FP: {fp}"],
-            ["0", f"FN: {fn}", f"TN: {tn}"],
-        ]
-        print(tabulate(confusion_matrix_table, tablefmt="fancy_grid"))
+    if classification:
+        if grid_search:
+            best_f1 = 0
+            best_probability_threshold = min_probability_threshold
+            best_pixel_threshold = min_pixel_threshold
+            # Loop over the different probability thresholds
+            num_probability_steps = int(
+                (max_probability_threshold - min_probability_threshold) / incremental_probability_step) + 1
+            for i in range(num_probability_steps):
+                current_probability_threshold = min_probability_threshold + i * incremental_probability_step
+
+                # Loop over the different pixel thresholds
+                num_pixel_steps = int((max_pixel_threshold - min_pixel_threshold) / incremental_pixel_step) + 1
+                for j in range(num_pixel_steps):
+                    current_pixel_threshold = min_pixel_threshold + j * incremental_pixel_step
+
+                    # Calculate classification metrics
+                    classification_metrics = calculate_classification_metrics(val_loader, model,
+                                                                              current_probability_threshold,
+                                                                              current_pixel_threshold, DEVICE)
+                    acc, f1, precision, recall, cm = classification_metrics
+
+                    # Check if the current thresholds have a better F1-score
+                    if f1 > best_f1:
+                        best_f1 = f1
+                        best_probability_threshold = current_probability_threshold
+                        best_pixel_threshold = current_pixel_threshold
+                        print(
+                            f"Probability Threshold: {current_probability_threshold:.4f}, Pixel Threshold: {current_pixel_threshold:.4f}, F1 Score: {f1:.4f}, Accuracy: {acc:.4f}")
+
+            print(f"\n Grid search complete! \n"
+                  f"Best probability threshold: {best_probability_threshold:.4f}, "
+                  f"Best pixel threshold: {best_pixel_threshold:.4f}, "
+                  f"Best F1-score: {best_f1:.4f}, "
+                  f"Best Accuracy: {acc:.4f}")
+        else:
+            # Calculate classification metrics
+            classification_metrics = calculate_classification_metrics(val_loader, model, probability_threshold,
+                                                                      pixel_threshold, DEVICE)
+            acc, f1, precision, recall, cm = classification_metrics
+            print(
+                f"Classification Metrics: Accuracy: {acc:.4f} | F1 Score: {f1:.4f} | Precision: {precision:.4f} | Recall: {recall:.4f} | Probability Threshold: {probability_threshold:.4f} | Pixel Threshold: {pixel_threshold:.4f}")
+
+            # Extract the true positives, false positives, true negatives and false negatives from the confusion matrix
+            tp, fp, tn, fn = cm.ravel()
+
+            # Print the confusion matrix with row and column labels
+            confusion_matrix_table = [
+                ["", "Actual"],
+                ["Predicted", "1", "0"],
+                ["1", f"TP: {tp}", f"FP: {fp}"],
+                ["0", f"FN: {fn}", f"TN: {tn}"],
+            ]
+            print(tabulate(confusion_matrix_table, tablefmt="fancy_grid"))
     else:
         # Calculate segmentation metrics
         binary_metrics = BinaryMetrics()
@@ -195,14 +236,25 @@ if __name__ == '__main__':
         # ['France_google', 0.002, 0.0],
         # ['Munich', 0.0, 0.0],
         # ['Denmark', 0.0, 0.001],
-        ['Heerlen_2018_HR_output', 0, 0.001],
+        ['Heerlen_2018_HR_output', 0.005, 0.002],
         # ['ZL_2018_HR_output', 0, 1]
     ]
 
     # Specify Cropping or No Cropping
     CROP = True
     # Specify Classification or Segmentation
-    CLASSIFICATION = False
+    CLASSIFICATION = True
+    PROBABILITY_THRESHOLD = 0.5
+    PIXEL_THRESHOLD = 0.001
+
+    # Specify Grid Search
+    GRID_SEARCH = True
+    MIN_PROBABILITY_THRESHOLD = 0.2
+    MAX_PROBABILITY_THRESHOLD = 0.8
+    INCREMENTAL_PROBABILITY_STEP = 0.1
+    MIN_PIXEL_THRESHOLD = 0.0001
+    MAX_PIXEL_THRESHOLD = 0.1
+    INCREMENTAL_PIXEL_STEP = 0.005
 
     # specify loss
     loss_fn = IoULoss()
@@ -212,4 +264,6 @@ if __name__ == '__main__':
     train_std = torch.tensor([0.2087, 0.1924, 0.1857])
 
     # run main function
-    main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROP, CLASSIFICATION)
+    main(model_name, dataset_fractions, train_mean, train_std, loss_fn, CROP, CLASSIFICATION, PROBABILITY_THRESHOLD,
+         PIXEL_THRESHOLD, GRID_SEARCH, MIN_PROBABILITY_THRESHOLD, MAX_PROBABILITY_THRESHOLD,
+         INCREMENTAL_PROBABILITY_STEP, MIN_PIXEL_THRESHOLD, MAX_PIXEL_THRESHOLD, INCREMENTAL_PIXEL_STEP)

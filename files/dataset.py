@@ -42,7 +42,7 @@ class FranceSegmentationDataset(Dataset):
             image_dir = "snippet"
 
         image, mask = self.transform((image, mask, image_dir))
-        return image, mask, self.images[idx] if idx < len(self.images) else f"generated_{idx - len(self.images)}"
+        return image, mask, self.images[idx] if idx < len(self.images) else f"generated_{idx - len(self.images)}", image_dir
 
 def get_loaders(
     image_dirs,

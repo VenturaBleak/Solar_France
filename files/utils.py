@@ -25,12 +25,12 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_name=None, pa
 
 def count_samples_in_loader(loader):
     total_samples = 0
-    for images, masks, _ in loader:
+    for images, masks, _, _ in loader:
         total_samples += images.shape[0]
     return total_samples
 
 def visualize_sample_images(train_loader, train_mean, train_std, batch_size, unorm):
-    images, masks, _ = next(iter(train_loader))
+    images, masks, _, _ = next(iter(train_loader))
     n_samples = batch_size // 2
 
     # Create a figure with multiple subplots
@@ -54,7 +54,7 @@ def visualize_sample_images(train_loader, train_mean, train_std, batch_size, uno
         axs[i, 2].imshow(overlay)
     plt.show()
 
-def calculate_classification_metrics(loader, model, device="cuda"):
+def calculate_classification_metrics(loader, model, probability_treshold, positive_pixel_threshold, device="cuda"):
     """Calculate common metrics for classification.
 
     Args:
@@ -70,17 +70,32 @@ def calculate_classification_metrics(loader, model, device="cuda"):
     predicted_labels = []
 
     with torch.no_grad():
-        for data, label, image_path in loader:
+        for data, label, image_paths, image_dirs in loader:
             data = data.to(device)
 
-            scores = model(data)
-            predictions = (scores > 0).float()
-            predictions = torch.any(predictions.view(predictions.size(0), -1), dim=1).cpu().numpy()
+            # Forward pass
+            logits = model(data)
 
-            # Extract true label from the image path
-            true_label = 1 if 'images_positive' in image_path else 0
-            true_labels.extend([true_label] * len(predictions))
-            predicted_labels.extend(predictions)
+            # Turn logits into probabilities
+            probs = torch.sigmoid(logits)
+
+            # Turn probabilities into positive or negative predictions, depending on a certain threshold, e.g. 0.5
+            preds = (probs > probability_treshold).float()
+
+            # Turn predictions into a list of 0s and 1s
+            total_pixels = preds.view(preds.size(0), -1).size(1)
+
+            # Calculate the number of positive pixels in each image
+            positive_pixel_count = torch.sum(preds.view(preds.size(0), -1), dim=1)
+
+            # Determine whether each image is classified as positive or negative, depending on the threshold
+            classification_preds = (positive_pixel_count / total_pixels > positive_pixel_threshold).cpu().numpy()
+
+            # Extract true labels from the image paths
+            for image_dir in image_dirs:
+                true_label = 1 if 'images_positive' in image_dir else 0
+                true_labels.append(true_label)
+            predicted_labels.extend(classification_preds)
 
     acc = accuracy_score(true_labels, predicted_labels)
     f1 = f1_score(true_labels, predicted_labels)
@@ -192,12 +207,12 @@ class BinaryMetrics():
         num_images = 0
 
         with torch.no_grad():
-            for X, y, _ in loader:
+            for X, y, _, _ in loader:
                 X = X.to(device)
                 y = y.float().to(device)
-                preds = model(X)
-                loss = loss_fn(preds, y)
-                preds = torch.sigmoid(preds)
+                logits = model(X)
+                loss = loss_fn(logits, y)
+                preds = torch.sigmoid(logits)
                 preds = (preds > 0.5).float()
 
                 # calculate metrics
@@ -222,10 +237,10 @@ class BinaryMetrics():
 
         return avg_metrics
 
-    def update_log_df(self, log_df, metric_dict, epoch, train_loss, scheduler):
-        new_row = {"epoch": epoch, "learning_rate": scheduler.get_last_lr()[0], "train_loss": train_loss, **metric_dict}
-        log_df.loc[len(log_df)] = new_row
-        return log_df
+def update_log_df(log_df, metric_dict, epoch, train_loss, scheduler):
+    new_row = {"epoch": epoch, "learning_rate": scheduler.get_last_lr()[0], "train_loss": train_loss, **metric_dict}
+    log_df.loc[len(log_df)] = new_row
+    return log_df
 
 def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda",
                              testing=False, BATCH_SIZE=16):
@@ -239,7 +254,7 @@ def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_im
 
     model.eval()
     all_images = []
-    for idx, (x, y, _) in enumerate(loader):
+    for idx, (x, y, _, _) in enumerate(loader):
         num_images = x.size(0)
         x = x.to(device=device)
         with torch.no_grad():
