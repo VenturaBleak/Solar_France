@@ -26,7 +26,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
     num_batches = len(loader)
 
     # iterate over batches
-    for batch_idx, (X, y) in enumerate(loop):
+    for batch_idx, (X, y, image_paths, image_dirs) in enumerate(loop):
         # move data to device
         X = X.to(device)
 
@@ -70,3 +70,5 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
 
     # update tqdm loop
     loop.set_postfix(loss=f"{epoch_loss:.4f}")
+
+    return epoch_loss

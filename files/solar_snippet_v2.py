@@ -1,7 +1,7 @@
 import os  # Import the os module for handling file paths
 import numpy as np  # Import numpy for array manipulation
 import scipy.ndimage as ndi  # Import the ndimage module from SciPy for image processing
-from PIL import Image  # Import the Image module from PIL for handling images
+from PIL import Image, ImageEnhance, ImageFilter  # Import the Image module from PIL for handling images
 import math
 from skimage.measure import regionprops_table
 import time
@@ -92,13 +92,15 @@ def crop_solar_panel(image, mask):
     return cropped_image, cropped_mask  # Return the cropped image and mask
 
 def find_angle(mask):
-    #show mask
+    # Show mask
     # mask.show()
     mask_array = np.array(mask)
     binary_mask = (mask_array == 255).astype(int)
-    props = regionprops_table(binary_mask, properties=['orientation'])
-    print(props)
-    angle = props['orientation'][0]
+    try:
+        props = regionprops_table(binary_mask, properties=['orientation'])
+        angle = props['orientation'][0]
+    except IndexError:
+        angle = 0
     return angle
 
 def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, location, bounding_box):
@@ -141,12 +143,46 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
     cropped_angle = find_angle(cropped_mask)
     rotation = np.degrees(target_angle - cropped_angle)
 
+    #############################
+    # Apply random transformations
+    #############################
     # Introduce randomness to the paste angle
-    rotation += random.randint(-15, 15)
+    rotation += random.randint(-10, 10)
 
     # Rotate the cropped image and mask to align with the target mask
     cropped_image = cropped_image.rotate(rotation, resample=Image.BICUBIC, expand=True)
-    cropped_mask = cropped_mask.rotate(rotation, resample=Image.BICUBIC, expand=True)
+    cropped_mask = cropped_mask.rotate(rotation, resample=Image.NEAREST, expand=True)
+
+    # Apply random brightness to the cropped image
+    if random.random() < 0.3:
+        brightness = ImageEnhance.Brightness(cropped_image)
+        cropped_image = brightness.enhance(random.uniform(0.9, 1.1))
+
+    # Apply random contrast to the cropped image
+    if random.random() < 0.3:
+        contrast = ImageEnhance.Contrast(cropped_image)
+        cropped_image = contrast.enhance(random.uniform(0.9, 1.1))
+
+    # Apply random hue to the cropped image
+    if random.random() < 0.3:
+        hue_factor = random.uniform(-0.05, 0.05)
+        cropped_image = ImageEnhance.Color(cropped_image).enhance(1 + hue_factor)
+
+    # Apply random zoom to the cropped image & mask
+    if random.random() < 0.3:
+        zoom_factor = random.uniform(0.85, 1.1)
+        resized_image_size = tuple([int(dim * zoom_factor) for dim in cropped_image.size])
+        resized_mask_size = tuple([int(dim * zoom_factor) for dim in cropped_mask.size])
+        cropped_image = cropped_image.resize(resized_image_size, resample=Image.BICUBIC)
+        cropped_mask = cropped_mask.resize(resized_mask_size, resample=Image.NEAREST)
+
+    # Apply Gaussian blur or sharpening to the cropped image
+    if random.random() < 0.3:
+        if random.random() < 0.7:
+            cropped_image = cropped_image.filter(ImageFilter.GaussianBlur(radius=random.uniform(0, 0.3)))
+        else:
+            #
+            cropped_image = ImageEnhance.Sharpness(cropped_image).enhance(random.uniform(0, 0.3))
 
     # Clear the target mask, i.e. fill it with 0s, that is, remove the building segmentations
     target_mask_np.fill(0)
@@ -159,7 +195,6 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
     target_mask.paste(cropped_mask, (paste_x, paste_y), mask=cropped_mask)
 
     return target_mask
-
 
 def modify_images(source_image, source_mask, target_image, target_mask):
     """
@@ -206,56 +241,71 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     # Return the modified target image and its mask
     return target_image, target_mask
 
+
+class ImageProcessor:
+    def __init__(self, solar_images, solar_masks, solar_image_dirs, solar_mask_dirs):
+        self.parent_dir = os.path.dirname(os.getcwd())
+        self.building_image_dir = os.path.join(self.parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
+        self.building_mask_dir = os.path.join(self.parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
+        # building image files
+        self.building_image_files = [os.path.join(self.building_image_dir, image) for image in sorted(os.listdir(self.building_image_dir)) if
+                                     image.endswith('.png')]
+        # building mask files
+        self.building_mask_files = [os.path.join(self.building_image_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
+                                    mask.endswith('.png')]
+        # solar image files
+        self.solar_image_files = [os.path.join(image_dir, image) for image_dir in solar_image_dirs for image in
+                                  solar_images if os.path.exists(os.path.join(image_dir, image))]
+
+        # solar mask files
+        self.solar_mask_files = [os.path.join(mask_dir, mask) for mask_dir in solar_mask_dirs for mask in solar_masks if
+                                 os.path.exists(os.path.join(mask_dir, mask))]
+
+    def filter_solar_files(self, expressions):
+        if not isinstance(expressions, list):
+            expressions = [expressions]
+
+        self.solar_image_files = [image_file for image_file in self.solar_image_files if
+                                  any(exp in image_file for exp in expressions)]
+        self.solar_mask_files = [mask_file for mask_file in self.solar_mask_files if
+                                 any(exp in mask_file for exp in expressions)]
+
+    def process_sample_images(self):
+        # Randomly select one training image and its corresponding mask file from the lists
+        index = random.randint(0, len(self.solar_image_files) - 1)
+        solar_image_path = self.solar_image_files[index]
+        solar_mask_path = self.solar_mask_files[index]
+        # print(solar_image_path, solar_mask_path)
+
+        # Get the building image and mask filenames
+        index = random.randint(0, len(self.building_image_files) - 1)
+        building_image_path = self.building_image_files[index]
+        building_mask_path = self.building_mask_files[index]
+        # print(building_image_path, building_mask_path)
+
+        source_image = Image.open(solar_image_path).convert("RGB")
+        source_mask = Image.open(solar_mask_path).convert("L")
+        target_image = Image.open(building_image_path).convert("RGB")
+        target_mask = Image.open(building_mask_path).convert("L")
+
+        try:
+            modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image,
+                                                                        target_mask)
+            # modified_target_image.show(), modified_target_mask.show()
+        except ValueError as e:
+            print(e)
+
+        return modified_target_image, modified_target_mask
+
 if __name__ == "__main__":
-    cwd = os.getcwd()
-    parent_dir = os.path.dirname(cwd)
+    parent_dir = os.path.dirname(os.getcwd())
+    positive_image_dir = os.path.join(parent_dir, 'data', 'France_google', 'images_positive')
+    positive_mask_dir = os.path.join(parent_dir, 'data', 'France_google', 'masks_positive')
 
-    solar_image_dir = os.path.join(parent_dir, 'data', 'France_google', 'images_positive')
-    solar_mask_dir = os.path.join(parent_dir, 'data', 'France_google', 'masks_positive')
+    train_images_positive = sorted([f for f in os.listdir(positive_image_dir) if f.endswith('.png')])
+    train_masks_positive = sorted([f for f in os.listdir(positive_mask_dir) if f.endswith('.png')])
 
-    building_image_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
-    building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
-
-    destination_dir = os.path.join(parent_dir, 'data', 'zz_trial', 'modified')
-
-    # Get the first 10 solar image and mask filenames
-    solar_image_files = sorted(os.listdir(solar_image_dir))[90:110]
-
-    # Get the first 10 building image and mask filenames
-    building_image_files = sorted(os.listdir(building_image_dir))[12:25]
-
-    # time this process
-    start = time.time()
-
-    # for building_image_file in building_image_files:
-    #     for solar_image_file in solar_image_files:
-
-
-
-    # Iterate over the first 10 elements in the solar_image_dir and building_image_dir folders
-    for solar_image_file, building_image_file, in zip(
-            solar_image_files, building_image_files
-    ):
-        for i in range(1):
-
-
-            source_image = Image.open(os.path.join(solar_image_dir, solar_image_file)).convert("RGB")
-            source_mask = Image.open(os.path.join(solar_mask_dir, solar_image_file)).convert("L")
-            target_image = Image.open(os.path.join(building_image_dir, building_image_file)).convert("RGB")
-            target_mask = Image.open(os.path.join(building_mask_dir, building_image_file)).convert("L")
-
-            try:
-                # most decisive line, later on we will use this function to modify the images within the data loader in the training loop
-                modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image, target_mask)
-
-                # modified_target_image.save(os.path.join(destination_dir, "modified_target_image.png"))
-                # modified_target_mask.save(os.path.join(destination_dir, "modified_target_mask.png"))
-
-                modified_target_image.show()
-                # modified_target_mask.show()
-
-            except ValueError as e:
-                print(e)
-
-    end = time.time()
-    print("Time taken: ", end - start)
+    image_processor = ImageProcessor(train_images_positive, train_masks_positive, [positive_image_dir],
+                                     [positive_mask_dir])
+    image, mask = image_processor.process_sample_images()
+    image.show(), mask.show()
