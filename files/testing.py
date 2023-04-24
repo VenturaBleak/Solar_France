@@ -1,3 +1,4 @@
+# libraries
 import os
 import time
 import math
@@ -7,29 +8,33 @@ import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
 import pandas as pd
+from tabulate import tabulate
+
+# repo files
 from model import (UNET,
-                   Segformer, create_segformer,
-                   DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
-                   PolynomialLRDecay, GradualWarmupScheduler
+                   Segformer, create_segformer
                    )
-from dataset import (FranceSegmentationDataset, TransformationTypes, get_loaders,
-                     create_train_val_splits,get_dirs_and_fractions, filter_positive_images,
-                     UnNormalize, get_mean_std)
+from dataset import (FranceSegmentationDataset, get_loaders,
+                     create_train_val_splits,get_dirs_and_fractions, filter_positive_images)
+from transformations import (TransformationTypes)
+from loss_functions import (DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss)
+from lr_schedulers import (PolynomialLRDecay, GradualWarmupScheduler)
 from train import train_fn
-from image_size_check import check_dimensions
 from utils import (
     save_checkpoint,
-    BinaryMetrics,
     generate_model_name,
     visualize_sample_images,
     save_predictions_as_imgs,
     count_samples_in_loader,
+    update_log_df,
+    UnNormalize,
+    get_mean_std
+)
+from eval_metrics import (
+    BinaryMetrics,
     calculate_classification_metrics
 )
 from solar_snippet_v2 import ImageProcessor
-from tabulate import tabulate
-
-
 
 def load_model(model_name, model, parent_dir):
     model_path = os.path.join(parent_dir, "trained_models", f"{model_name}.pth.tar")
@@ -198,7 +203,7 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, crop=Fal
                 f"Classification Metrics: Accuracy: {acc:.4f} | F1 Score: {f1:.4f} | Precision: {precision:.4f} | Recall: {recall:.4f} | Probability Threshold: {probability_threshold:.4f} | Pixel Threshold: {pixel_threshold:.4f}")
 
             # Extract the true positives, false positives, true negatives and false negatives from the confusion matrix
-            tp, fp, tn, fn = cm.ravel()
+            tn, fp, fn, tp = cm.ravel()
 
             # Print the confusion matrix with row and column labels
             confusion_matrix_table = [
@@ -248,7 +253,7 @@ if __name__ == '__main__':
     PIXEL_THRESHOLD = 0.001
 
     # Specify Grid Search
-    GRID_SEARCH = True
+    GRID_SEARCH = False
     MIN_PROBABILITY_THRESHOLD = 0.2
     MAX_PROBABILITY_THRESHOLD = 0.8
     INCREMENTAL_PROBABILITY_STEP = 0.1

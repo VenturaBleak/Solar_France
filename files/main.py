@@ -1,3 +1,4 @@
+# libraries
 import os
 import time
 import math
@@ -7,14 +8,17 @@ import torch.optim as optim
 from torchvision import transforms
 from torchinfo import summary
 import pandas as pd
+
+# repo files
 from model import (UNET,
-                   Segformer, create_segformer,
-                   DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss,
-                   PolynomialLRDecay, GradualWarmupScheduler
+                   Segformer, create_segformer
                    )
-from dataset import (FranceSegmentationDataset, TransformationTypes, get_loaders,
-                     create_train_val_splits,get_dirs_and_fractions, filter_positive_images,
-                     UnNormalize, get_mean_std)
+from dataset import (FranceSegmentationDataset, get_loaders,
+                     create_train_val_splits, get_dirs_and_fractions, filter_positive_images,
+                     )
+from transformations import (TransformationTypes)
+from loss_functions import (DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss)
+from lr_schedulers import (PolynomialLRDecay, GradualWarmupScheduler)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
@@ -23,9 +27,11 @@ from utils import (
     visualize_sample_images,
     save_predictions_as_imgs,
     count_samples_in_loader,
-    BinaryMetrics,
-    update_log_df
+    update_log_df,
+    UnNormalize,
+    get_mean_std
 )
+from eval_metrics import (BinaryMetrics)
 from solar_snippet_v2 import ImageProcessor
 
 def main():
@@ -46,8 +52,8 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = True
-    CALCULATE_MEAN_STD = False
-    ADDITIONAL_IMAGE_FRACTION = 1
+    CALCULATE_MEAN_STD = True
+    ADDITIONAL_IMAGE_FRACTION = 0
 
     ############################
     # Script
@@ -70,10 +76,10 @@ def main():
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.002, 0],
+            ['France_google', 0.0, 0],
             ['Munich', 0.0, 0.0],
             ['Denmark', 0.0, 0],
-            ['Heerlen_2018_HR_output', 0.0, 0],
+            ['Heerlen_2018_HR_output', 0.0, 0.01],
             ['ZL_2018_HR_output', 0, 0]
         ]
 
