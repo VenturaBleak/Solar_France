@@ -43,7 +43,7 @@ class TransformationTypes:
 
     def apply_cropping(self, img, mask, img_folder):
         if self.cropping:
-            crop_width, crop_height = 200, 200
+            crop_width, crop_height = 256, 256
             parent_folder = os.path.dirname(img_folder)
             folder_name = os.path.basename(parent_folder)
             if folder_name in self.center_crop_folders:
@@ -131,7 +131,7 @@ class TransformationTypes:
         ##############################
 
         # Zooming in and out by max x%
-        ZOOM = 0.1  # 0.1 = 10% -> 10% zoom in or out
+        ZOOM = 0.2  # 0.1 = 10% -> 10% zoom in or out
         PADDING = int(max(self.image_height, self.image_width) * ZOOM)
         if random.random() < 0.8:
             # Resize the image and mask with some padding

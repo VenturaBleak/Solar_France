@@ -44,7 +44,7 @@ def main():
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 25
+    NUM_EPOCHS = 30
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -54,8 +54,8 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = False
-    ADDITIONAL_IMAGE_FRACTION = 0.2
+    CALCULATE_MEAN_STD = True
+    ADDITIONAL_IMAGE_FRACTION = 0
 
     ############################
     # set seeds
@@ -80,17 +80,18 @@ def main():
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
             ['France_google', 1, 0],
+            ['France_ign', 1, 0],
             ['Munich', 1, 0],
             ['China', 1, 0],
-            ['Denmark', 1, 1]
+            ['Denmark', 1, 0]
         ]
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 1, 0],
-            ['Munich', 1, 0],
-            ['China', 1, 0],
-            ['Denmark', 1, 1]
+            ['France_google', 0.02, 0],
+            ['Munich', 0.001, 0],
+            ['China', 0.001, 0],
+            ['Denmark', 0.001, 0]
         ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
@@ -191,6 +192,7 @@ def main():
     # Data Loaders
     ############################
     # Calculate the number of additional images to be generated
+    print(len(train_images))
     extra_images = int(len(train_images) * ADDITIONAL_IMAGE_FRACTION)
 
     if ADDITIONAL_IMAGE_FRACTION > 0:
