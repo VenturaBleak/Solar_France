@@ -40,11 +40,11 @@ def main():
     ############################
     # Hyperparameters
     ############################
-    RANDOM_SEED = 90
+    RANDOM_SEED = 42
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 30
+    NUM_EPOCHS = 100
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -54,7 +54,7 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = True
+    CALCULATE_MEAN_STD = False
     ADDITIONAL_IMAGE_FRACTION = 0
 
     ############################
@@ -89,9 +89,10 @@ def main():
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
             ['France_google', 0.02, 0],
-            ['Munich', 0.001, 0],
-            ['China', 0.001, 0],
-            ['Denmark', 0.001, 0]
+            ['France_ign', 0.03, 0],
+            ['Munich', 0.05, 0],
+            ['China', 0.05, 0],
+            ['Denmark', 0.05, 0]
         ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
@@ -192,7 +193,6 @@ def main():
     # Data Loaders
     ############################
     # Calculate the number of additional images to be generated
-    print(len(train_images))
     extra_images = int(len(train_images) * ADDITIONAL_IMAGE_FRACTION)
 
     if ADDITIONAL_IMAGE_FRACTION > 0:
@@ -284,25 +284,25 @@ def main():
     ############################
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler
-    T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
-    print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
-    T_MULT = 2
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-                                                                     T_0 = T_0,
-                                                                     T_mult=T_MULT,
-                                                                     eta_min=LEARNING_RATE * 1e-4,
-                                                                     verbose=False)
+    # T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
+    # print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
+    # T_MULT = 2
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+    #                                                                  T_0 = T_0,
+    #                                                                  T_mult=T_MULT,
+    #                                                                  eta_min=LEARNING_RATE * 1e-4,
+    #                                                                  verbose=False)
 
     # update the learning rate after each epoch for the following schedulers
     # Polynomial learning rate scheduler
     # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
-    # MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
-    # print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
-    # POLY_POWER = 2.0
-    # scheduler = PolynomialLRDecay(optimizer=optimizer,
-    #                               max_decay_steps=MAX_ITER, # when to stop decay
-    #                               end_learning_rate=LEARNING_RATE*1e-4,
-    #                               power=POLY_POWER)
+    MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
+    print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
+    POLY_POWER = 2.0 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
+    scheduler = PolynomialLRDecay(optimizer=optimizer,
+                                  max_decay_steps=MAX_ITER, # when to stop decay
+                                  end_learning_rate=LEARNING_RATE*1e-4,
+                                  power=POLY_POWER)
 
     # Scheduler warmup
     # handle batch level schedulers
@@ -333,7 +333,7 @@ def main():
     # Print the number of samples in the train and validation loaders
     print(
         f'Training samples: {len(train_images)+extra_images}'
-        f' of which {extra_images} are snippets '
+        f' of which {extra_images} are snippets and {len(train_images)} are normal images.'
         f'| Training batches: {len(train_loader)}'
     )
     print(f'Validation samples: {count_samples_in_loader(val_loader)} | Validation batches: {len(val_loader)}')
@@ -375,16 +375,16 @@ def main():
 
         # Print the validation metrics
         print(
-            f"Val.Metrics: Loss: {metric_dict['val_loss']:.4f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | Pixel-Acc:{metric_dict['pixel_acc']:.3f} | "
+            f"Val.Metrics: Loss: {metric_dict['val_loss']:.4f} | "
             f"F1-Score:{metric_dict['f1_score']:.3f} | Precision:{metric_dict['precision']:.3f} | "
-            f"Recall:{metric_dict['recall']:.3f} | LR:{scheduler.get_last_lr()[0]:.1e}"
+            f"Recall:{metric_dict['recall']:.3f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | LR:{scheduler.get_last_lr()[0]:.1e}"
         )
 
         # Log validation metrics in a df, in the same order as the metrics_names
-        # ToDo: also log the mean std of the images
+        # ToDo: also log the lr and train_loss per batch
         log_df = update_log_df(log_df, metric_dict, epoch, train_loss, scheduler)
 
-        current_val_metric = metric_dict['balanced_acc']
+        current_val_metric = metric_dict['f1_score']
         # Saving the model, if the current validation metric is better than the best one
         if current_val_metric > best_val_metric:  # Change the condition if using val_loss or another metric
             best_val_metric = current_val_metric

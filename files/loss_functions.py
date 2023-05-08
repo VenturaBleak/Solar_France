@@ -153,6 +153,10 @@ class TverskyLoss(nn.Module):
     and 1 indicates no overlap.
     Depending on the values of alpha, beta, and smooth, the Tversky loss can also have values greater than 1,
     as there is no strict upper bound for the loss.
+
+    The problem with Tversky loss is that it is 1 when the groundtruth is only background and the prediction is showing some foreground.
+    The loss is 0, however, when the groundtruth is only background and the prediction is also only background.
+    That means that the difference between predicting all true and even one false is the same as predicting all false.
     """
     def __init__(self, weight=None, size_average=True):
         super(TverskyLoss, self).__init__()

@@ -109,31 +109,13 @@ class TransformationTypes:
         img, mask = self.apply_cropping(img, mask, img_folder)
 
         ##############################
-        # Augment image only
-        ##############################
-
-        # Apply sharpening or smoothing to the
-        if random.random() < 0.3:
-            img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0, 1)))
-
-        # sharpening
-        if random.random() < 0.3:
-            img = ImageEnhance.Sharpness(img).enhance(random.uniform(0, 1))
-
-        # Add any other custom transforms here
-        # Apply color jitter to the image only
-        if random.random() < 0.8:
-            color_jitter = transforms.ColorJitter(brightness=0.45, contrast=0.35, saturation=0.25, hue=0.1)
-            img = color_jitter(img)
-
-        ##############################
         # Augment both image and mask
         ##############################
 
         # Zooming in and out by max x%
         ZOOM = 0.2  # 0.1 = 10% -> 10% zoom in or out
         PADDING = int(max(self.image_height, self.image_width) * ZOOM)
-        if random.random() < 0.8:
+        if random.random() < 0.5:
             # Resize the image and mask with some padding
             img = transforms.Resize((self.image_height + PADDING, self.image_width + PADDING),
                                     interpolation=transforms.InterpolationMode.BICUBIC)(img)
@@ -161,7 +143,7 @@ class TransformationTypes:
         # Apply random rotation and translation (shift)
         # specify hyperparameters for rotation and translation
         ROTATION = 50
-        TRANSLATION = 0.4
+        TRANSLATION = 0.55
 
         # Generate random parameters for the affine transformation
         angle = random.uniform(-ROTATION, ROTATION)
@@ -177,6 +159,29 @@ class TransformationTypes:
                                             interpolation=transforms.InterpolationMode.NEAREST)
         # uncomment to assert that the mask is binary
         #check_non_binary_pixels(mask, "affine")
+
+        ##############################
+        # Augment image only
+        ##############################
+
+        if random.random() < 0.5:
+            # Apply smoothing or sharpening transform
+            if random.random() < 0.5:
+                # smoothing
+                img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0, 1)))
+            else:
+                # sharpening
+                img = ImageEnhance.Sharpness(img).enhance(random.uniform(0, 1))
+
+        # Add any other custom transforms here
+        # Apply color jitter to the image only
+        if random.random() < 0.7:
+            color_jitter = transforms.ColorJitter(brightness=0.45, contrast=0.35, saturation=0.25, hue=0.1)
+            img = color_jitter(img)
+
+        ##############################
+        # To tensor and normalize
+        ##############################
 
         # transform to tensor
         img = transforms.ToTensor()(img)
