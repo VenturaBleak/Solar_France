@@ -181,13 +181,13 @@ def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, crop=Fal
                                                                               current_pixel_threshold, DEVICE)
                     acc, f1, precision, recall, cm = classification_metrics
 
+                    print(
+                        f"Probability Threshold: {current_probability_threshold:.4f}, Pixel Threshold: {current_pixel_threshold:.4f}, F1 Score: {f1:.4f}, Accuracy: {acc:.4f}")
                     # Check if the current thresholds have a better F1-score
                     if f1 > best_f1:
                         best_f1 = f1
                         best_probability_threshold = current_probability_threshold
                         best_pixel_threshold = current_pixel_threshold
-                        print(
-                            f"Probability Threshold: {current_probability_threshold:.4f}, Pixel Threshold: {current_pixel_threshold:.4f}, F1 Score: {f1:.4f}, Accuracy: {acc:.4f}")
 
             print(f"\n Grid search complete! \n"
                   f"Best probability threshold: {best_probability_threshold:.4f}, "
@@ -253,7 +253,7 @@ if __name__ == '__main__':
     PIXEL_THRESHOLD = 0.001
 
     # Specify Grid Search
-    GRID_SEARCH = False
+    GRID_SEARCH = True
     MIN_PROBABILITY_THRESHOLD = 0.2
     MAX_PROBABILITY_THRESHOLD = 0.8
     INCREMENTAL_PROBABILITY_STEP = 0.1

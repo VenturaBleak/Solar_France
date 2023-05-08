@@ -44,7 +44,7 @@ def main():
     LEARNING_RATE = 1e-4 # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 10
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -53,9 +53,9 @@ def main():
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
-    CROPPING = True
+    CROPPING = False
     CALCULATE_MEAN_STD = False
-    ADDITIONAL_IMAGE_FRACTION = 0
+    ADDITIONAL_IMAGE_FRACTION = 0.2
 
     ############################
     # set seeds
@@ -79,19 +79,18 @@ def main():
     if DEVICE == "cuda":
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 1, 1],
+            ['France_google', 1, 0],
             ['Munich', 1, 0],
-            ['Heerlen_2018_HR_output', 0, 0.1],
-            ['Denmark', 0, 0.1]
+            ['China', 1, 0],
+            ['Denmark', 1, 1]
         ]
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.003, 0],
-            ['Munich', 0.0, 0.0],
-            ['Denmark', 0.0, 0],
-            ['Heerlen_2018_HR_output', 0.0, 0.001],
-            ['ZL_2018_HR_output', 0, 0]
+            ['France_google', 1, 0],
+            ['Munich', 1, 0],
+            ['China', 1, 0],
+            ['Denmark', 1, 1]
         ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
@@ -241,7 +240,7 @@ def main():
     # Loss function
     ############################
     # BCE
-    loss_fn = nn.BCEWithLogitsLoss()
+    # loss_fn = nn.BCEWithLogitsLoss()
 
     # Dice
     # oss_fn = DiceLoss()
@@ -250,7 +249,7 @@ def main():
     # loss_fn = IoULoss()
 
     # Tversky
-    # loss_fn = TverskyLoss()
+    loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
@@ -380,6 +379,7 @@ def main():
         )
 
         # Log validation metrics in a df, in the same order as the metrics_names
+        # ToDo: also log the mean std of the images
         log_df = update_log_df(log_df, metric_dict, epoch, train_loss, scheduler)
 
         current_val_metric = metric_dict['balanced_acc']
