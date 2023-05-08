@@ -54,7 +54,7 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = False
+    CALCULATE_MEAN_STD = True
     ADDITIONAL_IMAGE_FRACTION = 0
 
     ############################
