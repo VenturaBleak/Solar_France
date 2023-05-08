@@ -132,6 +132,8 @@ class BinaryMetrics():
         #   Deals with the issue when there is only background in the ground truth segmentation.
         balanced_acc = (recall + specificity) / 2
 
+        # ToDo: Add more metrics -> Matthews Correlation Coefficient, Cohen's Kappa, etc.
+
         # store metrics in dict
         self.metrics = {
             "balanced_acc": balanced_acc,

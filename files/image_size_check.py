@@ -91,6 +91,7 @@ def check_positive_masks_move_to_negative(images_positive_dir, masks_positive_di
         mask = Image.open(mask_path)
 
         white_pixels = False
+        # Check if mask has any white pixels
         for pixel in mask.getdata():
             if pixel == 255:
                 white_pixels = True
@@ -256,7 +257,7 @@ def remove_non_white_masks(image_dir, mask_dir):
 
     print(f"Removed {count} files without white pixels.")
 
-def process_dataset_no_pv(dataset):
+def check_dataset_no_pv(dataset):
     print("###############################################")
     print(f"Processing dataset: {dataset}")
 
@@ -284,11 +285,11 @@ if __name__ == "__main__":
 
     # process the dataset without PV
     dataset_no_pv = "Munich_rooftops_noPV"
-    process_dataset_no_pv(dataset_no_pv)
+    check_dataset_no_pv(dataset_no_pv)
 
 
     # specify the dataset folders to check
-    dataset_folders = ['Heerlen_2018_HR_output', 'ZL_2018_HR_output', 'France_ign','France_google', 'Munich', 'Denmark']
+    dataset_folders = ['Denmark']
 
     # perform check dimensions
     check_dimensions_main(dataset_folders)

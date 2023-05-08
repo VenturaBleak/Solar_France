@@ -9,6 +9,27 @@ import torch.nn.functional as F
 
 # Dice Loss
 class DiceLoss(nn.Module):
+    """
+    If the inputs are all -4 and the mask only contains background pixels (labels = 0) with N = 400x400 = 160000 pixels, let's calculate the Dice Loss using the provided implementation.
+
+    Apply the sigmoid function to the inputs. Since sigmoid(-4) ≈ 0.018 (approximately), the predicted probabilities would be around 0.018 for all pixels after the sigmoid activation.
+
+    Flatten the inputs and targets. In this case, the flattened inputs are close to 0.018 for all elements, and the flattened targets are all 0.
+
+    Calculate the intersection: (inputs * targets).sum(). Since targets are all 0, the intersection will be 0.
+
+    Calculate the Dice coefficient:
+    dice = (2 * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+    ≈ (2 * 0 + 1) / (0.018 * 160000 + 0 + 1) = 1 / (0.018 * 160000 + 1)
+
+    Return the Dice Loss: 1 - dice = 1 - (1 / (0.018 * 160000 + 1))
+
+    In this case, the Dice Loss would be:
+
+    1 - (1 / (0.018 * 160000 + 1)) ≈ 1 - (1 / 2881) ≈ 0.999653
+
+    The Dice Loss is close to 1, even though the model is predicting background pixels with a high probability (around 98.2%). This is because the large number of pixels (N = 160000) magnifies the effect of the small predicted probabilities, causing the Dice Loss to be higher.
+    """
     def __init__(self, weight=None, size_average=True):
         super(DiceLoss, self).__init__()
 
@@ -132,6 +153,10 @@ class TverskyLoss(nn.Module):
     and 1 indicates no overlap.
     Depending on the values of alpha, beta, and smooth, the Tversky loss can also have values greater than 1,
     as there is no strict upper bound for the loss.
+
+    The problem with Tversky loss is that it is 1 when the groundtruth is only background and the prediction is showing some foreground.
+    The loss is 0, however, when the groundtruth is only background and the prediction is also only background.
+    That means that the difference between predicting all true and even one false is the same as predicting all false.
     """
     def __init__(self, weight=None, size_average=True):
         super(TverskyLoss, self).__init__()

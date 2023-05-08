@@ -260,6 +260,8 @@ class ImageProcessor:
         # solar mask files
         self.solar_mask_files = [os.path.join(mask_dir, mask) for mask_dir in solar_mask_dirs for mask in solar_masks if
                                  os.path.exists(os.path.join(mask_dir, mask))]
+        # ToDo: check if number of solar images and training images are the same
+        print(f"Number of solar images: {len(self.solar_image_files)}")
 
     def filter_solar_files(self, expressions):
         if not isinstance(expressions, list):
