@@ -23,12 +23,12 @@ def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_name=None, pa
 
 def count_samples_in_loader(loader):
     total_samples = 0
-    for images, masks, _, _ in loader:
+    for images, masks in loader:
         total_samples += images.shape[0]
     return total_samples
 
 def visualize_sample_images(train_loader, train_mean, train_std, batch_size, unorm):
-    images, masks, _, _ = next(iter(train_loader))
+    images, masks = next(iter(train_loader))
     n_samples = batch_size // 2
 
     # Create a figure with multiple subplots
@@ -69,33 +69,33 @@ def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_im
 
     model.eval()
     all_images = []
-    for idx, (x, y, _, _) in enumerate(loader):
-        num_images = x.size(0)
-        x = x.to(device=device)
+    for idx, (X, y) in enumerate(loader):
+        num_images = X.size(0)
+        X = X.to(device=device)
         with torch.no_grad():
-            preds = torch.sigmoid(model(x))
+            preds = torch.sigmoid(model(X))
             preds = (preds > 0.5).float()
 
-            x = x.cpu()
+            X = X.cpu()
             y = y.cpu()
             preds = preds.cpu()
 
-            for i in range(x.size(0)):
-                x[i] = unnorm(x[i])
+            for i in range(X.size(0)):
+                X[i] = unnorm(X[i])
 
-            x = (x - x.min()) / (x.max() - x.min())
+            X = (X - X.min()) / (X.max() - X.min())
 
             y = y.repeat(1, 3, 1, 1)
             preds = preds.repeat(1, 3, 1, 1)
 
             if num_images < BATCH_SIZE:
                 pad_size = BATCH_SIZE - num_images
-                zero_padding = torch.zeros((pad_size, 3, x.size(2), x.size(3)))
-                x = torch.cat((x, zero_padding), dim=0)
+                zero_padding = torch.zeros((pad_size, 3, X.size(2), X.size(3)))
+                X = torch.cat((X, zero_padding), dim=0)
                 y = torch.cat((y, zero_padding), dim=0)
                 preds = torch.cat((preds, zero_padding), dim=0)
 
-            combined = torch.cat((x, y, preds), dim=3)
+            combined = torch.cat((X, y, preds), dim=3)
             all_images.append(combined)
 
             if idx == 2:
@@ -122,7 +122,7 @@ def get_mean_std(train_loader):
     train_mean = []
     train_std = []
 
-    for batch_idx, (X, y, _, _) in enumerate(train_loader):
+    for batch_idx, (X, y) in enumerate(train_loader):
         numpy_image = X.numpy()
 
         batch_mean = np.mean(numpy_image, axis=(0, 2, 3))

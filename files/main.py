@@ -16,7 +16,7 @@ from model import (UNET,
                    Segformer, create_segformer
                    )
 from dataset import (FranceSegmentationDataset, get_loaders,
-                     create_train_val_splits, get_dirs_and_fractions, filter_positive_images,
+                     fetch_filepaths, get_dirs_and_fractions, get_all_dirs_with_fractions
                      )
 from transformations import (TransformationTypes)
 from loss_functions import (DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss)
@@ -55,7 +55,7 @@ def main():
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
     CALCULATE_MEAN_STD = True
-    ADDITIONAL_IMAGE_FRACTION = 0
+    ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
     # set seeds
@@ -66,9 +66,9 @@ def main():
     torch.manual_seed(RANDOM_SEED)
     torch.backends.cudnn.deterministic = False
 
-    ############################
-    # Script
-    ############################
+    ###################################################################################################################
+    #### Beginning of Script
+    ###################################################################################################################
     # Get the current working directory
     cwd = os.getcwd()
 
@@ -85,49 +85,67 @@ def main():
             ['China', 1, 0],
             ['Denmark', 1, 0]
         ]
+        val_folder = os.path.join(parent_dir, 'data_val')
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.02, 0],
-            ['France_ign', 0.03, 0],
-            ['Munich', 0.05, 0],
-            ['China', 0.05, 0],
-            ['Denmark', 0.05, 0]
+            ['France_google', 0.003, 0],
+            ['France_ign', 0, 0],
+            ['Munich', 0.0, 0],
+            ['China', 0.0, 0],
+            ['Denmark', 0.0, 0]
         ]
+        val_folder = os.path.join(parent_dir, 'data_val')
 
+    ############################
+    # Train and validation splits
+    ############################
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
-
-    ############################
-    # Train and validation splits
-    ############################
-    # Train and validation splits
-    train_images, train_masks, val_images, val_masks, total_selected_images = create_train_val_splits(
+    train_images, train_masks = fetch_filepaths(
         image_dirs,
         mask_dirs,
         fractions,
-        val_size=0.1,
         random_state=RANDOM_SEED,
     )
 
-    # Unit Test: assert that images and masks are identical
-    assert train_images == train_masks
-    assert val_images == val_masks
+    # get all images in a given folder, that is: val_data
+    val_image_dirs, val_mask_dirs, val_fractions = get_all_dirs_with_fractions(val_folder)
+    val_images, val_masks = fetch_filepaths(
+        val_image_dirs,
+        val_mask_dirs,
+        val_fractions,
+        random_state=RANDOM_SEED,
+    )
 
     ############################
-    # Instantiate Snippet class
+    # Unit Tests for filepaths
     ############################
-    # filter only positive images
-    train_images_positive, train_masks_positive, positive_image_dirs, positive_mask_dirs = filter_positive_images(
-        train_images, train_masks, image_dirs, mask_dirs)
+    # Unit Test1: check whether images are unique, that is, no duplicates
+    assert len(train_images) == len(set(train_images))
+    assert len(train_masks) == len(set(train_masks))
+    assert len(val_images) == len(set(val_images))
+    assert len(val_masks) == len(set(val_masks))
 
-    # Unit Test: assert that images and masks are identical
-    assert train_images_positive == train_masks_positive
+    # Unit Test2: assert that the last part of the path is identical for images and masks, for both train and val
+    for img_path, mask_path in zip(train_images, train_masks):
+        img_parts = img_path.split(os.sep)
+        mask_parts = mask_path.split(os.sep)
+        # "data\\France_google\\masks_positive\\UMDRQB0BCRQMH.png" -> "France_google" == "France_google"
+        assert img_parts[-3:-2] == mask_parts[-3:-2], "Mismatch between image and mask folders"
+        # "data\\France_google\\masks_positive\\UMDRQB0BCRQMH.png" -> "UMDRQB0BCRQMH.png" == "UMDRQB0BCRQMH.png"
+        assert img_parts[-1].split('.')[0] == mask_parts[-1].split('.')[0], "Mismatch between image and mask filenames"
 
-    # instantiate snippet class
-    image_processor = ImageProcessor(train_images_positive, train_masks_positive, positive_image_dirs,
-                                     positive_mask_dirs)
-    # only keep panels from those datasets
-    image_processor.filter_solar_files(["France_google"])
+    # Unit test3 Check for potential mix-up due to identical filenames in different datasets
+    unique_image_names = set()
+    for dataset, img_list in [('train', train_images), ('val', val_images)]:
+        for img_path in img_list:
+            dataset_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))  # e.g. "France_google"
+            image_filename = os.path.basename(img_path)  # e.g. "UMDRQB0BCRQMH.png"
+            unique_identifier = f"{dataset_name}_{dataset}_{image_filename}"  # e.g. "France_google_train_UMDRQB0BCRQMH.png"
+
+            # Assert that the combination of dataset name, subset (train or val) and image filename is unique
+            assert unique_identifier not in unique_image_names, "Potential mix-up due to identical filenames in different datasets"
+            unique_image_names.add(unique_identifier)
 
     ############################
     # Specify initial transforms
@@ -136,41 +154,20 @@ def main():
     inital_transforms = transforms.Lambda(transformations.apply_initial_transforms)
 
     ############################
-    # Unit Test: assert that the number of images and masks are the same
-    ############################
-    train_ds = FranceSegmentationDataset(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        images=train_images,
-        masks=train_masks,
-        transform=inital_transforms,
-    )
-    val_ds = FranceSegmentationDataset(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        images=val_images,
-        masks=val_masks,
-        transform=inital_transforms,
-    )
-    assert (len(train_ds) + len(val_ds)) == total_selected_images
-
-    ############################
     # Get mean and std of training set
     ############################
     if CALCULATE_MEAN_STD == True:
         # Get loaders
         train_loader, val_loader = get_loaders(
-            image_dirs=image_dirs,
-            mask_dirs=mask_dirs,
-            train_images=train_images,
-            train_masks=train_masks,
-            val_images=val_images,
-            val_masks=val_masks,
-            batch_size=BATCH_SIZE,
-            train_transforms=inital_transforms,
-            val_transforms=inital_transforms,
-            num_workers=NUM_WORKERS,
-            pin_memory=PIN_MEMORY,
+                train_images=train_images,
+                train_masks=train_masks,
+                val_images=val_images,
+                val_masks=val_masks,
+                batch_size=BATCH_SIZE,
+                train_transforms=inital_transforms,
+                val_transforms=inital_transforms,
+                num_workers=NUM_WORKERS,
+                pin_memory=True
         )
         # retrieve the mean and std of the training images
         train_mean, train_std = get_mean_std(train_loader)
@@ -192,34 +189,18 @@ def main():
     ############################
     # Data Loaders
     ############################
-    # Calculate the number of additional images to be generated
-    extra_images = int(len(train_images) * ADDITIONAL_IMAGE_FRACTION)
-
-    if ADDITIONAL_IMAGE_FRACTION > 0:
-        train_sampler = 1
-    else:
-        train_sampler = None
-
-    # Get the loaders
+    # Get loaders
     train_loader, val_loader = get_loaders(
-        image_dirs,
-        mask_dirs,
-        train_images,
-        train_masks,
-        val_images,
-        val_masks,
-        BATCH_SIZE,
-        train_transforms,
-        val_transforms,
-        NUM_WORKERS,
-        PIN_MEMORY,
-        image_gen_func=lambda: image_processor.process_sample_images(),
-        extra_images=extra_images,
-        train_sampler=train_sampler,
-        random_seed=RANDOM_SEED,
+        train_images=train_images,
+        train_masks=train_masks,
+        val_images=val_images,
+        val_masks=val_masks,
+        batch_size=BATCH_SIZE,
+        train_transforms=train_transforms,
+        val_transforms=val_transforms,
+        num_workers=NUM_WORKERS,
+        pin_memory=True
     )
-
-    num_batches = len(train_loader)
 
     ############################
     # Model & Loss function
@@ -296,7 +277,7 @@ def main():
     # update the learning rate after each epoch for the following schedulers
     # Polynomial learning rate scheduler
     # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
-    MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
+    MAX_ITER = int(len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))
     print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
     POLY_POWER = 2.0 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
     scheduler = PolynomialLRDecay(optimizer=optimizer,
@@ -304,10 +285,9 @@ def main():
                                   end_learning_rate=LEARNING_RATE*1e-4,
                                   power=POLY_POWER)
 
-    # Scheduler warmup
-    # handle batch level schedulers
-    if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
-            or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
+    # LR Scheduler warmup
+    if True:
+        # applicable for CosineAnnealingWarmRestarts, and PolynomialLRDecay
         WARMUP_EPOCHS = WARMUP_EPOCHS * len(train_loader)
         print("Number of Warmup Batches: ", WARMUP_EPOCHS)
         print(f'Number of total Batches: {len(train_loader) * NUM_EPOCHS}')
@@ -331,13 +311,8 @@ def main():
     visualize_sample_images(train_loader, train_mean, train_std, BATCH_SIZE, unorm)
 
     # Print the number of samples in the train and validation loaders
-    print(
-        f'Training samples: {len(train_images)+extra_images}'
-        f' of which {extra_images} are snippets and {len(train_images)} are normal images.'
-        f'| Training batches: {len(train_loader)}'
-    )
+    print(f'Training samples: {len(train_images)} | Training batches: {len(train_loader)}')
     print(f'Validation samples: {count_samples_in_loader(val_loader)} | Validation batches: {len(val_loader)}')
-    del val_ds, train_ds
 
     ############################
     # Training
