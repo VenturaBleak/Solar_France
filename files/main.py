@@ -16,7 +16,7 @@ from model import (UNET,
                    Segformer, create_segformer
                    )
 from dataset import (FranceSegmentationDataset, get_loaders,
-                     fetch_filepaths, get_dirs_and_fractions, get_all_dirs_with_fractions
+                     fetch_filepaths, get_dirs_and_fractions
                      )
 from transformations import (TransformationTypes)
 from loss_functions import (DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss)
@@ -24,10 +24,8 @@ from lr_schedulers import (PolynomialLRDecay, GradualWarmupScheduler)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
-    save_checkpoint,
-    generate_model_name,
-    visualize_sample_images,
-    save_predictions_as_imgs,
+    save_checkpoint, load_model, generate_model_name,
+    visualize_sample_images, save_predictions_as_imgs,
     count_samples_in_loader,
     update_log_df,
     UnNormalize,
@@ -36,15 +34,15 @@ from utils import (
 from eval_metrics import (BinaryMetrics)
 from solar_snippet_v2 import ImageProcessor
 
-def main():
+def main(model_name, scheduler_name, learning_rate):
     ############################
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 1e-4 # (0.0001)
+    LEARNING_RATE = learning_rate # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = 150
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -54,7 +52,7 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = True
+    CALCULATE_MEAN_STD = False
     ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
@@ -76,9 +74,8 @@ def main():
     parent_dir = os.path.dirname(cwd)
 
     # Define the directories where the data is stored
-    train_folder = 'data'
-    val_folder = 'data_val'
-    test_folder = 'data_test'
+    train_folder = 'data_train'
+    val_folder = 'data_test'
 
     # specify the training datasets
     if DEVICE == "cuda":
@@ -93,11 +90,11 @@ def main():
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.01, 0],
-            ['France_ign', 0, 0],
-            ['Munich', 0.0, 0],
-            ['China', 0.0, 0],
-            ['Denmark', 0.0, 0]
+            ['France_google', 1, 0],
+            ['France_ign', 1, 0],
+            ['Munich', 1, 0],
+            ['China', 1, 0],
+            ['Denmark', 1, 0]
         ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, train_folder)
@@ -114,15 +111,6 @@ def main():
         val_image_dirs,
         val_mask_dirs,
         val_fractions,
-        random_state=RANDOM_SEED,
-    )
-
-    # get all images in a given folder, that is: test_data
-    test_image_dirs, test_mask_dirs, test_fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, test_folder)
-    test_images, test_masks = fetch_filepaths(
-        test_image_dirs,
-        test_mask_dirs,
-        test_fractions,
         random_state=RANDOM_SEED,
     )
 
@@ -214,16 +202,12 @@ def main():
     ############################
     # Model & Loss function
     ############################
-    # UNET
-    # model = UNET(in_channels=3, out_channels=1).to(DEVICE)
-
-    # Segformer
-    if DEVICE == "cuda":
-        segformer_arch = 'B0'
+    if model_name == "UNet":
+        # UNET
+        model = UNET(in_channels=3, out_channels=1).to(DEVICE)
     else:
-        segformer_arch = 'B0'
-    # also, experiment with bilinear interpolation on or off -> final upsamplin layer of the model
-    model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
+        # also, experiment with bilinear interpolation on or off -> final upsampling layer of the model
+        model = create_segformer(model_name, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
@@ -274,25 +258,27 @@ def main():
     ############################
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler
-    # T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
-    # print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
-    # T_MULT = 2
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-    #                                                                  T_0 = T_0,
-    #                                                                  T_mult=T_MULT,
-    #                                                                  eta_min=LEARNING_RATE * 1e-4,
-    #                                                                  verbose=False)
+    if scheduler_name == "CosineAnnealingWarmRestarts":
+        T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
+        print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
+        T_MULT = 2
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+                                                                         T_0 = T_0,
+                                                                         T_mult=T_MULT,
+                                                                         eta_min=LEARNING_RATE * 1e-4,
+                                                                         verbose=False)
 
     # update the learning rate after each epoch for the following schedulers
     # Polynomial learning rate scheduler
     # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
-    MAX_ITER = int(len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))
-    print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
-    POLY_POWER = 2.0 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
-    scheduler = PolynomialLRDecay(optimizer=optimizer,
-                                  max_decay_steps=MAX_ITER, # when to stop decay
-                                  end_learning_rate=LEARNING_RATE*1e-4,
-                                  power=POLY_POWER)
+    if scheduler_name == "PolynomialLRDecay":
+        MAX_ITER = int(len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))
+        print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
+        POLY_POWER = 2.0 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
+        scheduler = PolynomialLRDecay(optimizer=optimizer,
+                                      max_decay_steps=MAX_ITER, # when to stop decay
+                                      end_learning_rate=LEARNING_RATE*1e-4,
+                                      power=POLY_POWER)
 
     # LR Scheduler warmup
     if True:
@@ -314,6 +300,24 @@ def main():
                                        is_batch = IS_BATCH)
 
     ############################
+    # Loading initialized model weights
+    ############################
+    model_dir = "_Initialized"
+
+    try:
+        # load the model
+        load_model(model_dir, model_name, model, parent_dir)
+        print(f"Initialized Model {model_name} loaded.")
+    except FileNotFoundError:
+        # if model is not found, save the initial state of the model
+        print(f"No initialized model with name {model_name} found, saving the initial state of the model.")
+        checkpoint = {
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }
+        model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+
+    ############################
     # Visualize sample images
     ############################
     # visualize some sample images
@@ -321,17 +325,15 @@ def main():
 
     # Print the number of samples in the train and validation loaders
     print(f'Training samples: {len(train_images)} | Training batches: {len(train_loader)}')
-    print(f'Validation samples: {count_samples_in_loader(val_loader)} | Validation batches: {len(val_loader)}')
+    print(f'Validation samples: {len(val_images)} | Validation batches: {len(val_loader)}')
 
     ############################
     # Training
     ############################
 
     # retrieve model name for saving
-    model_name = generate_model_name(segformer_arch,
-                                     loss_fn.__class__.__name__,
-                                     optimizer.__class__.__name__,
-                                     [x[0] for x in dataset_fractions])
+    model_dir = "LR_Tuning"
+    model_name = model_name + "_" + scheduler_name + "_LR" + str(LEARNING_RATE)
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -379,7 +381,8 @@ def main():
                 "optimizer": optimizer.state_dict(),
             }
 
-            model_path = save_checkpoint(checkpoint, model_name=model_name, parent_dir=parent_dir)
+            model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+
             # save some examples to a folder
             save_predictions_as_imgs(
                 val_loader, model, unnorm=unorm, model_name=model_name, folder=model_path,
@@ -398,4 +401,11 @@ def main():
     print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
 
 if __name__ == "__main__":
-    main()
+    # loop over main for the following parameters
+    model_names = ["B0"]
+    schedulers = ["CosineAnnealingWarmRestarts", "PolynomialLRDecay"]
+    learning_rates = [1e-3, 5e-4, 1e-4, 5e-5]
+    for model_name in model_names:
+        for scheduler_name in schedulers:
+            for learning_rate in learning_rates:
+                main(model_name, scheduler_name, learning_rate)

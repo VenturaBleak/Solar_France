@@ -36,15 +36,6 @@ from eval_metrics import (
 )
 from solar_snippet_v2 import ImageProcessor
 
-def load_model(model_name, model, parent_dir):
-    model_path = os.path.join(parent_dir, "trained_models", f"{model_name}.pth.tar")
-
-    checkpoint = torch.load(model_path)
-
-    model.load_state_dict(checkpoint["state_dict"])
-    print(f"=> Loaded checkpoint '{model_path}")
-    return model_path
-
 def main(model_name, dataset_fractions, train_mean, train_std, loss_fn, crop=False, classification=False,
          probability_threshold=0.5, pixel_threshold=0.001, grid_search=False, min_probability_threshold=0.0000,
          max_probability_threshold=0.01, incremental_probability_step=0.0002, min_pixel_threshold=0.0000,

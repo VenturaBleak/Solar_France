@@ -11,15 +11,32 @@ def generate_model_name(architecture, loss_function, optimizer, dataset_names):
         model_name += f"_{dataset_name}"
     return model_name
 
-def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_name=None, parent_dir=None):
+def save_checkpoint(state, filename="my_checkpoint.pth.tar", model_dir =None, model_name=None,  parent_dir=None):
+    # raise error if either model_dir or parent_dir is None
+    try:
+        assert model_dir is not None or parent_dir is not None
+    except AssertionError:
+        raise AssertionError("Either model_dir or parent_dir must be specified")
+
+    # if model_dir is not None, save model in model_dir
     if model_name is not None:
-        os.makedirs(os.path.join(parent_dir, "trained_models"), exist_ok=True)
-        filepath = os.path.join(parent_dir, "trained_models")
-        filename = os.path.join(parent_dir, "trained_models", f"{model_name}.pth.tar")
+        os.makedirs(os.path.join(parent_dir, "models"), exist_ok=True)
+        os.makedirs(os.path.join(parent_dir, "models", model_dir), exist_ok=True)
+        filepath = os.path.join(parent_dir, "models", model_dir)
+        filename = os.path.join(parent_dir, "models", model_dir, f"{model_name}.pth.tar")
 
     torch.save(state, filename)
     print(f'Best model saved as {filename}')
     return filepath
+
+def load_model(model_dir, model_name, model, parent_dir):
+    model_path = os.path.join(parent_dir, "models", model_dir, f"{model_name}.pth.tar")
+
+    checkpoint = torch.load(model_path)
+
+    model.load_state_dict(checkpoint["state_dict"])
+    print(f"=> Loaded checkpoint '{model_path}")
+    return model_path
 
 def count_samples_in_loader(loader):
     total_samples = 0

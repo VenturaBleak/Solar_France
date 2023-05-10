@@ -143,7 +143,7 @@ class TransformationTypes:
         # Apply random rotation and translation (shift)
         # specify hyperparameters for rotation and translation
         ROTATION = 50
-        TRANSLATION = 0.55
+        TRANSLATION = 0.50
 
         # Generate random parameters for the affine transformation
         angle = random.uniform(-ROTATION, ROTATION)
@@ -164,7 +164,7 @@ class TransformationTypes:
         # Augment image only
         ##############################
 
-        if random.random() < 0.5:
+        if random.random() < 0.3:
             # Apply smoothing or sharpening transform
             if random.random() < 0.5:
                 # smoothing

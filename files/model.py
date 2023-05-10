@@ -300,8 +300,8 @@ class Segformer(nn.Module):
             nn.Conv2d(decoder_dim, num_classes, 1),
         )
 
-        # Upsampling: choose between bilinear, interpolation, or deconvolution
-        self.upsample = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
+        # choose between Upsampling via Scaling or DeConvolution
+        self.upsample = nn.Upsample(scale_factor=4, mode='nearest')
         # self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
 
     def forward(self, x):

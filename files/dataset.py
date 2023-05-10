@@ -58,13 +58,34 @@ def get_loaders(
     num_workers=0,
     pin_memory=True
 ):
+    """
+    Create DataLoader objects for training, validation and test datasets.
 
+    :param train_images: List of training image file paths.
+    :param train_masks: List of training mask file paths.
+    :param val_images: List of validation image file paths.
+    :param val_masks: List of validation mask file paths.
+    :param batch_size: Number of samples per batch.
+    :param train_transforms: Transforms to apply to training data.
+    :param val_transforms: Transforms to apply to validation data.
+    :param num_workers: Number of worker processes for data loading.
+    :param pin_memory: Whether to pin memory for DataLoader.
+    :return: DataLoaders for training, validation and test datasets.
+    """
+    # Create datasets for training, validation, and test
     train_ds = FranceSegmentationDataset(
         images=train_images,
         masks=train_masks,
         transform=train_transforms
     )
 
+    val_ds = FranceSegmentationDataset(
+        images=val_images,
+        masks=val_masks,
+        transform=val_transforms
+    )
+
+    # Create data loaders for training, validation, and test
     train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
@@ -72,12 +93,6 @@ def get_loaders(
         pin_memory=pin_memory,
         shuffle=True,
         drop_last=True
-    )
-
-    val_ds = FranceSegmentationDataset(
-        images=val_images,
-        masks=val_masks,
-        transform=val_transforms
     )
 
     val_loader = DataLoader(

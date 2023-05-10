@@ -28,7 +28,7 @@ def split_data(dataset_fractions, parent_dir):
 
             # Calculate the number of files for training and validation
             num_train = int(len(files) * 0.8)
-            num_val = int(len(files) * 0.1)
+            num_val = int(len(files) * 0)
 
             # Split the files into train, validation, and test sets
             files_train, files_val, files_test = files[:num_train], files[num_train:num_train + num_val], files[num_train + num_val:]
