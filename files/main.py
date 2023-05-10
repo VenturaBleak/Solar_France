@@ -393,7 +393,7 @@ def main(model_name, scheduler_name, learning_rate):
         log_df.to_csv(log_csv_path, index=False)
 
         # if epoch // 5 == 0: then save pred as imgs
-        if epoch % 5 == 0:
+        if epoch % 5 == 0 or epoch == NUM_EPOCHS:
             img_file_name = model_name + "_Epoch" + str(epoch)
             save_predictions_as_imgs(
                 val_loader, model, unnorm=unorm, model_name=img_file_name, folder=model_path,
@@ -414,11 +414,15 @@ def main(model_name, scheduler_name, learning_rate):
         # img_file_name = everything until excluding the epoch number, e.g. B0_CosineAnnealingWarmRestarts_LR2e-4_Epoch
         image_name_pattern = "{}_Epoch(\d+)".format(model_name)
         output_gif_name = model_name + "_GIF" + str(index) + ".gif"
-        create_gif_from_images(image_folder=model_path, image_name_pattern=image_name_pattern,
-                              output_gif_name=output_gif_name,
-                              image_index=index,
-                              img_height=416,
-                              img_width=416)
+        font_path = os.path.join(cwd, "Arial_Bold.ttf")
+        create_gif_from_images(image_folder=model_path,
+                               image_name_pattern=image_name_pattern,
+                               output_gif_name=output_gif_name,
+                               image_index=index,
+                               img_height=416,
+                               img_width=416,
+                               font_path=font_path,
+                               num_epochs = NUM_EPOCHS)
 
 if __name__ == "__main__":
     # loop over main for the following parameters

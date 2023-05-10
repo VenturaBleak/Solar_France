@@ -158,7 +158,8 @@ def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_im
 
         model.train()
 
-def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, image_index, img_height, img_width):
+def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, image_index, img_height, img_width,
+                           font_path, num_epochs):
     """
     Create a GIF from a subset of images in a folder.
 
@@ -169,6 +170,7 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
         image_index (int): Index of the image-mask-prediction combination to be included in the GIF.
         img_height (int): Height of the individual image.
         img_width (int): Width of the individual image.
+        font_path (str): Path to the .ttf file for the desired font.
 
     Returns:
         None
@@ -203,14 +205,23 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
 
         # Create a draw object and specify the font size and color
         draw = ImageDraw.Draw(selected_img)
-        font = ImageFont.load_default()   # You may need to adjust the font path
+        font = ImageFont.truetype(font_path, 18)  # You may need to adjust the font size
 
         # Add text to the bottom right corner
         text = f"Epoch {epoch}"
         textwidth, textheight = draw.textsize(text, font)
         width, height = selected_img.size
-        x = width - textwidth - 10  # 10 pixels from the right
+        x = width - textwidth - 25  # 25 pixels from the right
         y = height - textheight - 10  # 10 pixels from the bottom
+
+        # Draw a semi-transparent rectangle behind the text
+        rectangle_left = x - 5
+        rectangle_top = y - 5
+        rectangle_right = x + textwidth + 5
+        rectangle_bottom = y + textheight + 5
+        draw.rectangle([rectangle_left, rectangle_top, rectangle_right, rectangle_bottom], fill=(0, 0, 0))
+
+        # Draw the text
         draw.text((x, y), text, font=font, fill='white')
 
         # Append to the list
@@ -219,7 +230,8 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
     # Create the GIF
     if selected_images:  # only if the list is not empty
         selected_images[0].save(os.path.join(image_folder, output_gif_name), save_all=True,
-                                append_images=selected_images[1:], optimize=False, duration=1500, loop=0)
+                                append_images=selected_images[1:], optimize=False, duration=num_epochs * 10, loop=0,
+                                dither=Image.FLOYDSTEINBERG)
         print(f"Created GIF '{output_gif_name}' with {len(selected_images)} images.")
     else:
         print("No images found to create a GIF.")
