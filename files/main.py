@@ -42,7 +42,7 @@ def main(model_name, scheduler_name, learning_rate):
     LEARNING_RATE = learning_rate # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 150
+    NUM_EPOCHS = 50
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -274,7 +274,7 @@ def main(model_name, scheduler_name, learning_rate):
     if scheduler_name == "PolynomialLRDecay":
         MAX_ITER = int(len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))
         print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
-        POLY_POWER = 2.0 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
+        POLY_POWER = 1.5 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
         scheduler = PolynomialLRDecay(optimizer=optimizer,
                                       max_decay_steps=MAX_ITER, # when to stop decay
                                       end_learning_rate=LEARNING_RATE*1e-4,
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     # loop over main for the following parameters
     model_names = ["B0"]
     schedulers = ["CosineAnnealingWarmRestarts", "PolynomialLRDecay"]
-    learning_rates = [1e-3, 5e-4, 1e-4, 5e-5]
+    learning_rates = [1e-3, 5e-4, 1e-4]
     for model_name in model_names:
         for scheduler_name in schedulers:
             for learning_rate in learning_rates:
