@@ -52,7 +52,7 @@ def main(model_name, scheduler_name, learning_rate):
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = True
+    CALCULATE_MEAN_STD = False
     ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
@@ -170,8 +170,8 @@ def main(model_name, scheduler_name, learning_rate):
         train_mean, train_std = get_mean_std(train_loader)
     else:
         # specify train_mean, train_std -> has to be in this format: tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
-        train_mean = torch.tensor([0.3542, 0.3581, 0.3108])
-        train_std = torch.tensor([0.2087, 0.1924, 0.1857])
+        train_mean = torch.tensor([0.3817, 0.3870, 0.3454])
+        train_std = torch.tensor([0.2156, 0.1996, 0.1950])
 
     # specify UnNormalize() function for visualization of sample images
     unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
@@ -316,7 +316,6 @@ def main(model_name, scheduler_name, learning_rate):
             "optimizer": optimizer.state_dict(),
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
-    exit()
 
     ############################
     # Visualize sample images
