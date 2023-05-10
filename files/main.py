@@ -42,7 +42,7 @@ def main(model_name, scheduler_name, learning_rate):
     LEARNING_RATE = learning_rate # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 50
+    NUM_EPOCHS = 100
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -81,11 +81,11 @@ def main(model_name, scheduler_name, learning_rate):
     if DEVICE == "cuda":
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 1, 0],
-            ['France_ign', 1, 0],
-            ['Munich', 1, 0],
-            ['China', 1, 0],
-            ['Denmark', 1, 0]
+            ['France_google', 0.5, 0],
+            ['France_ign', 0.5, 0],
+            ['Munich', 0.5, 0],
+            ['China', 0.5, 0],
+            ['Denmark', 0.5, 0]
         ]
     else:
         dataset_fractions = [
