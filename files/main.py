@@ -67,13 +67,18 @@ def main():
     torch.backends.cudnn.deterministic = False
 
     ###################################################################################################################
-    #### Beginning of Script
+    #### Specify Training, Validation and Test Datasets
     ###################################################################################################################
     # Get the current working directory
     cwd = os.getcwd()
 
     # Define the parent directory of the current working directory
     parent_dir = os.path.dirname(cwd)
+
+    # Define the directories where the data is stored
+    train_folder = 'data'
+    val_folder = 'data_val'
+    test_folder = 'data_test'
 
     # specify the training datasets
     if DEVICE == "cuda":
@@ -85,22 +90,17 @@ def main():
             ['China', 1, 0],
             ['Denmark', 1, 0]
         ]
-        val_folder = os.path.join(parent_dir, 'data_val')
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.003, 0],
+            ['France_google', 0.01, 0],
             ['France_ign', 0, 0],
             ['Munich', 0.0, 0],
             ['China', 0.0, 0],
             ['Denmark', 0.0, 0]
         ]
-        val_folder = os.path.join(parent_dir, 'data_val')
 
-    ############################
-    # Train and validation splits
-    ############################
-    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
+    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, train_folder)
     train_images, train_masks = fetch_filepaths(
         image_dirs,
         mask_dirs,
@@ -109,7 +109,7 @@ def main():
     )
 
     # get all images in a given folder, that is: val_data
-    val_image_dirs, val_mask_dirs, val_fractions = get_all_dirs_with_fractions(val_folder)
+    val_image_dirs, val_mask_dirs, val_fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, val_folder)
     val_images, val_masks = fetch_filepaths(
         val_image_dirs,
         val_mask_dirs,
@@ -117,8 +117,17 @@ def main():
         random_state=RANDOM_SEED,
     )
 
+    # get all images in a given folder, that is: test_data
+    test_image_dirs, test_mask_dirs, test_fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, test_folder)
+    test_images, test_masks = fetch_filepaths(
+        test_image_dirs,
+        test_mask_dirs,
+        test_fractions,
+        random_state=RANDOM_SEED,
+    )
+
     ############################
-    # Unit Tests for filepaths
+    # Unit Tests for checking filepaths are correctly fetched
     ############################
     # Unit Test1: check whether images are unique, that is, no duplicates
     assert len(train_images) == len(set(train_images))
@@ -261,7 +270,7 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
 
     ############################
-    # Scheduler
+    # LR Scheduler
     ############################
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler

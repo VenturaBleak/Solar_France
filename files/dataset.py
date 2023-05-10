@@ -136,8 +136,14 @@ def fetch_filepaths(image_dirs, mask_dirs, fractions, random_state=42):
 
     return images, masks
 
-
-def get_dirs_and_fractions(dataset_fractions, parent_dir):
+def get_dirs_and_fractions(dataset_fractions, parent_dir, data_dir='data'):
+    """
+    Returns the image and mask directories and their corresponding fractions from the given dataset fractions.
+    :param dataset_fractions:
+    :param parent_dir:
+    :param data_dir:
+    :return:
+    """
     image_dirs = []
     mask_dirs = []
     fractions = []
@@ -145,39 +151,13 @@ def get_dirs_and_fractions(dataset_fractions, parent_dir):
     for ds_info in dataset_fractions:
         dataset_name, pos_fraction, neg_fraction = ds_info
 
-        image_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'images_positive'))
-        image_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'images_negative'))
+        image_dirs.append(os.path.join(parent_dir, data_dir, dataset_name, 'images_positive'))
+        image_dirs.append(os.path.join(parent_dir, data_dir, dataset_name, 'images_negative'))
 
-        mask_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'masks_positive'))
-        mask_dirs.append(os.path.join(parent_dir, 'data', dataset_name, 'masks_negative'))
+        mask_dirs.append(os.path.join(parent_dir, data_dir, dataset_name, 'masks_positive'))
+        mask_dirs.append(os.path.join(parent_dir, data_dir, dataset_name, 'masks_negative'))
 
         fractions.append(pos_fraction)
         fractions.append(neg_fraction)
-
-    return image_dirs, mask_dirs, fractions
-
-def get_all_dirs_with_fractions(parent_dir):
-    """
-    Returns all image and mask directories in the parent directory along with a fraction of 1 for each dataset.
-    """
-    image_dirs = []
-    mask_dirs = []
-    fractions = []
-
-    # Iterate over all dataset folders in the parent directory
-    for dataset_name in os.listdir(parent_dir):
-        dataset_dir = os.path.join(parent_dir, dataset_name)
-
-        # Check if it's indeed a directory and not a file
-        if os.path.isdir(dataset_dir):
-            # Append the directories for positive and negative images and their masks
-            image_dirs.append(os.path.join(dataset_dir, 'images_positive'))
-            image_dirs.append(os.path.join(dataset_dir, 'images_negative'))
-
-            mask_dirs.append(os.path.join(dataset_dir, 'masks_positive'))
-            mask_dirs.append(os.path.join(dataset_dir, 'masks_negative'))
-
-            # Append 1 as the fraction for each dataset
-            fractions.extend([1, 1])
 
     return image_dirs, mask_dirs, fractions
