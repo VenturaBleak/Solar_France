@@ -126,7 +126,7 @@ if __name__ == '__main__':
     ]
 
     # Create the splits
-    # split_data(dataset_fractions, parent_dir)
+    split_data(dataset_fractions, parent_dir)
 
     # Unit-Test the splits
     test_no_overlap_and_count(dataset_fractions, parent_dir)
