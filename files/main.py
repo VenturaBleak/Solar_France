@@ -404,7 +404,7 @@ if __name__ == "__main__":
     # loop over main for the following parameters
     model_names = ["B0"]
     schedulers = ["CosineAnnealingWarmRestarts", "PolynomialLRDecay"]
-    learning_rates = [1e-3, 5e-4, 1e-4]
+    learning_rates = [2e-4, 1e-4, 5e-5]
     for model_name in model_names:
         for scheduler_name in schedulers:
             for learning_rate in learning_rates:
