@@ -25,7 +25,7 @@ from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
     save_checkpoint, load_model, generate_model_name,
-    visualize_sample_images, save_predictions_as_imgs,
+    visualize_sample_images, save_predictions_as_imgs, create_gif_from_images,
     count_samples_in_loader,
     update_log_df,
     UnNormalize,
@@ -42,7 +42,7 @@ def main(model_name, scheduler_name, learning_rate):
     LEARNING_RATE = learning_rate # (0.0001)
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = 40
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -392,6 +392,15 @@ def main(model_name, scheduler_name, learning_rate):
         log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
         log_df.to_csv(log_csv_path, index=False)
 
+        # if epoch // 5 == 0: then save pred as imgs
+        if epoch % 5 == 0:
+            img_file_name = model_name + "_Epoch" + str(epoch)
+            save_predictions_as_imgs(
+                val_loader, model, unnorm=unorm, model_name=img_file_name, folder=model_path,
+                device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
+
+            break
+
     print("All epochs completed.")
 
     #time end
@@ -399,6 +408,17 @@ def main(model_name, scheduler_name, learning_rate):
 
     # print total training time in hours, minutes, seconds
     print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
+
+    # create GIF from the saved images
+    for index in [2,5,8,11,14]:
+        # img_file_name = everything until excluding the epoch number, e.g. B0_CosineAnnealingWarmRestarts_LR2e-4_Epoch
+        image_name_pattern = "{}_Epoch(\d+)".format(model_name)
+        output_gif_name = model_name + "_GIF" + str(index) + ".gif"
+        create_gif_from_images(image_folder=model_path, image_name_pattern=image_name_pattern,
+                              output_gif_name=output_gif_name,
+                              image_index=index,
+                              img_height=416,
+                              img_width=416)
 
 if __name__ == "__main__":
     # loop over main for the following parameters
