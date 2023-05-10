@@ -52,7 +52,7 @@ def main(model_name, scheduler_name, learning_rate):
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = False
+    CALCULATE_MEAN_STD = True
     ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
@@ -90,11 +90,11 @@ def main(model_name, scheduler_name, learning_rate):
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 1, 0],
-            ['France_ign', 1, 0],
-            ['Munich', 1, 0],
-            ['China', 1, 0],
-            ['Denmark', 1, 0]
+            ['France_google', 0.002, 0],
+            ['France_ign', 0, 0],
+            ['Munich', 0, 0],
+            ['China', 0, 0],
+            ['Denmark', 0, 0]
         ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, train_folder)
@@ -316,6 +316,7 @@ def main(model_name, scheduler_name, learning_rate):
             "optimizer": optimizer.state_dict(),
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+    exit()
 
     ############################
     # Visualize sample images
