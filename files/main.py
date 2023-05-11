@@ -34,15 +34,16 @@ from utils import (
 from eval_metrics import (BinaryMetrics)
 from solar_snippet_v2 import ImageProcessor
 
-def main(model_name, scheduler_name, learning_rate):
+def main(model_name):
     ############################
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = learning_rate # (0.0001)
+    LEARNING_RATE = 1e-4 # (0.0001)
+    scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 40
+    NUM_EPOCHS = 100
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -332,8 +333,8 @@ def main(model_name, scheduler_name, learning_rate):
     ############################
 
     # retrieve model name for saving
-    model_dir = "LR_Tuning"
-    model_name = model_name + "_" + scheduler_name + "_LR" + str(LEARNING_RATE)
+    model_dir = "Upsample"
+    model_name = model_name + "_" + "Deconv"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -399,8 +400,6 @@ def main(model_name, scheduler_name, learning_rate):
                 val_loader, model, unnorm=unorm, model_name=img_file_name, folder=model_path,
                 device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
 
-            break
-
     print("All epochs completed.")
 
     #time end
@@ -427,9 +426,5 @@ def main(model_name, scheduler_name, learning_rate):
 if __name__ == "__main__":
     # loop over main for the following parameters
     model_names = ["B0"]
-    schedulers = ["CosineAnnealingWarmRestarts", "PolynomialLRDecay"]
-    learning_rates = [2e-4, 1e-4, 5e-5]
     for model_name in model_names:
-        for scheduler_name in schedulers:
-            for learning_rate in learning_rates:
-                main(model_name, scheduler_name, learning_rate)
+        main(model_name)

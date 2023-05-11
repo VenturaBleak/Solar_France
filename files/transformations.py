@@ -157,6 +157,7 @@ class TransformationTypes:
         # Apply the affine transformation to the mask with the same parameters
         mask = transforms.functional.affine(mask, angle, (translate_x, translate_y), 1, 0,
                                             interpolation=transforms.InterpolationMode.NEAREST)
+
         # uncomment to assert that the mask is binary
         #check_non_binary_pixels(mask, "affine")
 
