@@ -369,7 +369,6 @@ def main(model_name):
         )
 
         # Log validation metrics in a df, in the same order as the metrics_names
-        # ToDo: also log the lr and train_loss per batch
         log_df = update_log_df(log_df, metric_dict, epoch, train_loss, scheduler)
 
         current_val_metric = metric_dict['f1_score']
