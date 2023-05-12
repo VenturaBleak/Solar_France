@@ -53,7 +53,6 @@ class PolynomialLRDecay(_LRScheduler):
         self._last_lr = self.get_lr()
         return self._last_lr
 
-
 # Warmup Scheduler
 # code taken from: https://www.kaggle.com/datasets/aryankhatana/pytorch-warmup-scheduler
 class GradualWarmupScheduler(_LRScheduler):

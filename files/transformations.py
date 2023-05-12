@@ -143,7 +143,7 @@ class TransformationTypes:
         # Apply random rotation and translation (shift)
         # specify hyperparameters for rotation and translation
         ROTATION = 50
-        TRANSLATION = 0.55
+        TRANSLATION = 0.50
 
         # Generate random parameters for the affine transformation
         angle = random.uniform(-ROTATION, ROTATION)
@@ -157,6 +157,7 @@ class TransformationTypes:
         # Apply the affine transformation to the mask with the same parameters
         mask = transforms.functional.affine(mask, angle, (translate_x, translate_y), 1, 0,
                                             interpolation=transforms.InterpolationMode.NEAREST)
+
         # uncomment to assert that the mask is binary
         #check_non_binary_pixels(mask, "affine")
 
@@ -164,7 +165,7 @@ class TransformationTypes:
         # Augment image only
         ##############################
 
-        if random.random() < 0.5:
+        if random.random() < 0.3:
             # Apply smoothing or sharpening transform
             if random.random() < 0.5:
                 # smoothing

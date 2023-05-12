@@ -155,7 +155,7 @@ class BinaryMetrics():
         num_images = 0
 
         with torch.no_grad():
-            for X, y, _, _ in loader:
+            for X, y in loader:
                 X = X.to(device)
                 y = y.float().to(device)
                 logits = model(X)

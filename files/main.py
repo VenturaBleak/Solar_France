@@ -16,7 +16,7 @@ from model import (UNET,
                    Segformer, create_segformer
                    )
 from dataset import (FranceSegmentationDataset, get_loaders,
-                     create_train_val_splits, get_dirs_and_fractions, filter_positive_images,
+                     fetch_filepaths, get_dirs_and_fractions
                      )
 from transformations import (TransformationTypes)
 from loss_functions import (DiceLoss, DiceBCELoss, FocalLoss, IoULoss, TverskyLoss)
@@ -24,10 +24,8 @@ from lr_schedulers import (PolynomialLRDecay, GradualWarmupScheduler)
 from train import train_fn
 from image_size_check import check_dimensions
 from utils import (
-    save_checkpoint,
-    generate_model_name,
-    visualize_sample_images,
-    save_predictions_as_imgs,
+    save_checkpoint, load_model, generate_model_name,
+    visualize_sample_images, save_predictions_as_imgs, create_gif_from_images,
     count_samples_in_loader,
     update_log_df,
     UnNormalize,
@@ -36,12 +34,13 @@ from utils import (
 from eval_metrics import (BinaryMetrics)
 from solar_snippet_v2 import ImageProcessor
 
-def main():
+def main(model_name):
     ############################
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
     LEARNING_RATE = 1e-4 # (0.0001)
+    scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
     NUM_EPOCHS = 100
@@ -54,8 +53,8 @@ def main():
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
-    CALCULATE_MEAN_STD = True
-    ADDITIONAL_IMAGE_FRACTION = 0
+    CALCULATE_MEAN_STD = False
+    ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
     # set seeds
@@ -66,68 +65,85 @@ def main():
     torch.manual_seed(RANDOM_SEED)
     torch.backends.cudnn.deterministic = False
 
-    ############################
-    # Script
-    ############################
+    ###################################################################################################################
+    #### Specify Training, Validation and Test Datasets
+    ###################################################################################################################
     # Get the current working directory
     cwd = os.getcwd()
 
     # Define the parent directory of the current working directory
     parent_dir = os.path.dirname(cwd)
 
+    # Define the directories where the data is stored
+    train_folder = 'data_train'
+    val_folder = 'data_test'
+
     # specify the training datasets
     if DEVICE == "cuda":
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 1, 0],
-            ['France_ign', 1, 0],
-            ['Munich', 1, 0],
-            ['China', 1, 0],
-            ['Denmark', 1, 0]
+            ['France_google', 0.5, 0],
+            ['France_ign', 0.5, 0],
+            ['Munich', 0.5, 0],
+            ['China', 0.5, 0],
+            ['Denmark', 0.5, 0]
         ]
     else:
         dataset_fractions = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.02, 0],
-            ['France_ign', 0.03, 0],
-            ['Munich', 0.05, 0],
-            ['China', 0.05, 0],
-            ['Denmark', 0.05, 0]
+            ['France_google', 0.002, 0],
+            ['France_ign', 0, 0],
+            ['Munich', 0, 0],
+            ['China', 0, 0],
+            ['Denmark', 0, 0]
         ]
 
-    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir)
-
-    ############################
-    # Train and validation splits
-    ############################
-    # Train and validation splits
-    train_images, train_masks, val_images, val_masks, total_selected_images = create_train_val_splits(
+    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, train_folder)
+    train_images, train_masks = fetch_filepaths(
         image_dirs,
         mask_dirs,
         fractions,
-        val_size=0.1,
         random_state=RANDOM_SEED,
     )
 
-    # Unit Test: assert that images and masks are identical
-    assert train_images == train_masks
-    assert val_images == val_masks
+    # get all images in a given folder, that is: val_data
+    val_image_dirs, val_mask_dirs, val_fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, val_folder)
+    val_images, val_masks = fetch_filepaths(
+        val_image_dirs,
+        val_mask_dirs,
+        val_fractions,
+        random_state=RANDOM_SEED,
+    )
 
     ############################
-    # Instantiate Snippet class
+    # Unit Tests for checking filepaths are correctly fetched
     ############################
-    # filter only positive images
-    train_images_positive, train_masks_positive, positive_image_dirs, positive_mask_dirs = filter_positive_images(
-        train_images, train_masks, image_dirs, mask_dirs)
+    # Unit Test1: check whether images are unique, that is, no duplicates
+    assert len(train_images) == len(set(train_images))
+    assert len(train_masks) == len(set(train_masks))
+    assert len(val_images) == len(set(val_images))
+    assert len(val_masks) == len(set(val_masks))
 
-    # Unit Test: assert that images and masks are identical
-    assert train_images_positive == train_masks_positive
+    # Unit Test2: assert that the last part of the path is identical for images and masks, for both train and val
+    for img_path, mask_path in zip(train_images, train_masks):
+        img_parts = img_path.split(os.sep)
+        mask_parts = mask_path.split(os.sep)
+        # "data\\France_google\\masks_positive\\UMDRQB0BCRQMH.png" -> "France_google" == "France_google"
+        assert img_parts[-3:-2] == mask_parts[-3:-2], "Mismatch between image and mask folders"
+        # "data\\France_google\\masks_positive\\UMDRQB0BCRQMH.png" -> "UMDRQB0BCRQMH.png" == "UMDRQB0BCRQMH.png"
+        assert img_parts[-1].split('.')[0] == mask_parts[-1].split('.')[0], "Mismatch between image and mask filenames"
 
-    # instantiate snippet class
-    image_processor = ImageProcessor(train_images_positive, train_masks_positive, positive_image_dirs,
-                                     positive_mask_dirs)
-    # only keep panels from those datasets
-    image_processor.filter_solar_files(["France_google"])
+    # Unit test3 Check for potential mix-up due to identical filenames in different datasets
+    unique_image_names = set()
+    for dataset, img_list in [('train', train_images), ('val', val_images)]:
+        for img_path in img_list:
+            dataset_name = os.path.basename(os.path.dirname(os.path.dirname(img_path)))  # e.g. "France_google"
+            image_filename = os.path.basename(img_path)  # e.g. "UMDRQB0BCRQMH.png"
+            unique_identifier = f"{dataset_name}_{dataset}_{image_filename}"  # e.g. "France_google_train_UMDRQB0BCRQMH.png"
+
+            # Assert that the combination of dataset name, subset (train or val) and image filename is unique
+            assert unique_identifier not in unique_image_names, "Potential mix-up due to identical filenames in different datasets"
+            unique_image_names.add(unique_identifier)
 
     ############################
     # Specify initial transforms
@@ -136,48 +152,27 @@ def main():
     inital_transforms = transforms.Lambda(transformations.apply_initial_transforms)
 
     ############################
-    # Unit Test: assert that the number of images and masks are the same
-    ############################
-    train_ds = FranceSegmentationDataset(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        images=train_images,
-        masks=train_masks,
-        transform=inital_transforms,
-    )
-    val_ds = FranceSegmentationDataset(
-        image_dirs=image_dirs,
-        mask_dirs=mask_dirs,
-        images=val_images,
-        masks=val_masks,
-        transform=inital_transforms,
-    )
-    assert (len(train_ds) + len(val_ds)) == total_selected_images
-
-    ############################
     # Get mean and std of training set
     ############################
     if CALCULATE_MEAN_STD == True:
         # Get loaders
         train_loader, val_loader = get_loaders(
-            image_dirs=image_dirs,
-            mask_dirs=mask_dirs,
-            train_images=train_images,
-            train_masks=train_masks,
-            val_images=val_images,
-            val_masks=val_masks,
-            batch_size=BATCH_SIZE,
-            train_transforms=inital_transforms,
-            val_transforms=inital_transforms,
-            num_workers=NUM_WORKERS,
-            pin_memory=PIN_MEMORY,
+                train_images=train_images,
+                train_masks=train_masks,
+                val_images=val_images,
+                val_masks=val_masks,
+                batch_size=BATCH_SIZE,
+                train_transforms=inital_transforms,
+                val_transforms=inital_transforms,
+                num_workers=NUM_WORKERS,
+                pin_memory=True
         )
         # retrieve the mean and std of the training images
         train_mean, train_std = get_mean_std(train_loader)
     else:
         # specify train_mean, train_std -> has to be in this format: tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
-        train_mean = torch.tensor([0.3542, 0.3581, 0.3108])
-        train_std = torch.tensor([0.2087, 0.1924, 0.1857])
+        train_mean = torch.tensor([0.3817, 0.3870, 0.3454])
+        train_std = torch.tensor([0.2156, 0.1996, 0.1950])
 
     # specify UnNormalize() function for visualization of sample images
     unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
@@ -192,48 +187,28 @@ def main():
     ############################
     # Data Loaders
     ############################
-    # Calculate the number of additional images to be generated
-    extra_images = int(len(train_images) * ADDITIONAL_IMAGE_FRACTION)
-
-    if ADDITIONAL_IMAGE_FRACTION > 0:
-        train_sampler = 1
-    else:
-        train_sampler = None
-
-    # Get the loaders
+    # Get loaders
     train_loader, val_loader = get_loaders(
-        image_dirs,
-        mask_dirs,
-        train_images,
-        train_masks,
-        val_images,
-        val_masks,
-        BATCH_SIZE,
-        train_transforms,
-        val_transforms,
-        NUM_WORKERS,
-        PIN_MEMORY,
-        image_gen_func=lambda: image_processor.process_sample_images(),
-        extra_images=extra_images,
-        train_sampler=train_sampler,
-        random_seed=RANDOM_SEED,
+        train_images=train_images,
+        train_masks=train_masks,
+        val_images=val_images,
+        val_masks=val_masks,
+        batch_size=BATCH_SIZE,
+        train_transforms=train_transforms,
+        val_transforms=val_transforms,
+        num_workers=NUM_WORKERS,
+        pin_memory=True
     )
-
-    num_batches = len(train_loader)
 
     ############################
     # Model & Loss function
     ############################
-    # UNET
-    # model = UNET(in_channels=3, out_channels=1).to(DEVICE)
-
-    # Segformer
-    if DEVICE == "cuda":
-        segformer_arch = 'B0'
+    if model_name == "UNet":
+        # UNET
+        model = UNET(in_channels=3, out_channels=1).to(DEVICE)
     else:
-        segformer_arch = 'B0'
-    # also, experiment with bilinear interpolation on or off -> final upsamplin layer of the model
-    model = create_segformer(segformer_arch, channels=3, num_classes=1).to(DEVICE)
+        # also, experiment with bilinear interpolation on or off -> final upsampling layer of the model
+        model = create_segformer(model_name, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
@@ -280,34 +255,35 @@ def main():
     # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
 
     ############################
-    # Scheduler
+    # LR Scheduler
     ############################
     # update the learning rate after each batch for the following schedulers
     # Cosine annealing with warm restarts scheduler
-    # T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
-    # print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
-    # T_MULT = 2
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
-    #                                                                  T_0 = T_0,
-    #                                                                  T_mult=T_MULT,
-    #                                                                  eta_min=LEARNING_RATE * 1e-4,
-    #                                                                  verbose=False)
+    if scheduler_name == "CosineAnnealingWarmRestarts":
+        T_0 =  int((len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))/30) # The number of epochs or iterations to complete one cosine annealing cycle.
+        print('Cosing Annealing with Warm Restarts scheduler - Number of batches in T_0:', T_0)
+        T_MULT = 2
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer,
+                                                                         T_0 = T_0,
+                                                                         T_mult=T_MULT,
+                                                                         eta_min=LEARNING_RATE * 1e-4,
+                                                                         verbose=False)
 
     # update the learning rate after each epoch for the following schedulers
     # Polynomial learning rate scheduler
     # scheduler visualized: https://www.researchgate.net/publication/224312922/figure/fig1/AS:668980725440524@1536508842675/Plot-of-Q-1-of-our-upper-bound-B1-as-a-function-of-the-decay-rate-g-for-both.png
-    MAX_ITER = NUM_EPOCHS - WARMUP_EPOCHS
-    print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
-    POLY_POWER = 2.0 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
-    scheduler = PolynomialLRDecay(optimizer=optimizer,
-                                  max_decay_steps=MAX_ITER, # when to stop decay
-                                  end_learning_rate=LEARNING_RATE*1e-4,
-                                  power=POLY_POWER)
+    if scheduler_name == "PolynomialLRDecay":
+        MAX_ITER = int(len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))
+        print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
+        POLY_POWER = 1.3 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
+        scheduler = PolynomialLRDecay(optimizer=optimizer,
+                                      max_decay_steps=MAX_ITER, # when to stop decay
+                                      end_learning_rate=LEARNING_RATE*1e-3,
+                                      power=POLY_POWER)
 
-    # Scheduler warmup
-    # handle batch level schedulers
-    if isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingWarmRestarts)\
-            or isinstance(scheduler, torch.optim.lr_scheduler.CosineAnnealingLR):
+    # LR Scheduler warmup
+    if True:
+        # applicable for CosineAnnealingWarmRestarts, and PolynomialLRDecay
         WARMUP_EPOCHS = WARMUP_EPOCHS * len(train_loader)
         print("Number of Warmup Batches: ", WARMUP_EPOCHS)
         print(f'Number of total Batches: {len(train_loader) * NUM_EPOCHS}')
@@ -325,29 +301,40 @@ def main():
                                        is_batch = IS_BATCH)
 
     ############################
+    # Loading initialized model weights
+    ############################
+    model_dir = "_Initialized"
+
+    try:
+        # load the model
+        load_model(model_dir, model_name, model, parent_dir)
+        print(f"Initialized Model {model_name} loaded.")
+    except FileNotFoundError:
+        # if model is not found, save the initial state of the model
+        print(f"No initialized model with name {model_name} found, saving the initial state of the model.")
+        checkpoint = {
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }
+        model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+
+    ############################
     # Visualize sample images
     ############################
     # visualize some sample images
     visualize_sample_images(train_loader, train_mean, train_std, BATCH_SIZE, unorm)
 
     # Print the number of samples in the train and validation loaders
-    print(
-        f'Training samples: {len(train_images)+extra_images}'
-        f' of which {extra_images} are snippets and {len(train_images)} are normal images.'
-        f'| Training batches: {len(train_loader)}'
-    )
-    print(f'Validation samples: {count_samples_in_loader(val_loader)} | Validation batches: {len(val_loader)}')
-    del val_ds, train_ds
+    print(f'Training samples: {len(train_images)} | Training batches: {len(train_loader)}')
+    print(f'Validation samples: {len(val_images)} | Validation batches: {len(val_loader)}')
 
     ############################
     # Training
     ############################
 
     # retrieve model name for saving
-    model_name = generate_model_name(segformer_arch,
-                                     loss_fn.__class__.__name__,
-                                     optimizer.__class__.__name__,
-                                     [x[0] for x in dataset_fractions])
+    model_dir = "LR_Tuning"
+    model_name = model_name + "_" + "Poly1,3_MinLR*1e-3"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -395,7 +382,8 @@ def main():
                 "optimizer": optimizer.state_dict(),
             }
 
-            model_path = save_checkpoint(checkpoint, model_name=model_name, parent_dir=parent_dir)
+            model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+
             # save some examples to a folder
             save_predictions_as_imgs(
                 val_loader, model, unnorm=unorm, model_name=model_name, folder=model_path,
@@ -405,6 +393,13 @@ def main():
         log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
         log_df.to_csv(log_csv_path, index=False)
 
+        # if epoch // 5 == 0: then save pred as imgs
+        if epoch % 5 == 0 or epoch == NUM_EPOCHS:
+            img_file_name = model_name + "_Epoch" + str(epoch)
+            save_predictions_as_imgs(
+                val_loader, model, unnorm=unorm, model_name=img_file_name, folder=model_path,
+                device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
+
     print("All epochs completed.")
 
     #time end
@@ -413,5 +408,23 @@ def main():
     # print total training time in hours, minutes, seconds
     print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
 
+    # create GIF from the saved images
+    for index in [2,5,8,11,14]:
+        # img_file_name = everything until excluding the epoch number, e.g. B0_CosineAnnealingWarmRestarts_LR2e-4_Epoch
+        image_name_pattern = "{}_Epoch(\d+)".format(model_name)
+        output_gif_name = model_name + "_GIF" + str(index) + ".gif"
+        font_path = os.path.join(cwd, "Arial_Bold.ttf")
+        create_gif_from_images(image_folder=model_path,
+                               image_name_pattern=image_name_pattern,
+                               output_gif_name=output_gif_name,
+                               image_index=index,
+                               img_height=416,
+                               img_width=416,
+                               font_path=font_path,
+                               num_epochs = NUM_EPOCHS)
+
 if __name__ == "__main__":
-    main()
+    # loop over main for the following parameters
+    model_names = ["B0"]
+    for model_name in model_names:
+        main(model_name)
