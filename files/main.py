@@ -352,6 +352,12 @@ def main(model_name):
     # Initialize the best validation metric
     best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
 
+    # ToDo: move this once running
+    from grad_cam import visualize_gradcam_UNET, visualize_gradcam_Segformer
+    visualize_gradcam_Segformer(model, val_loader, device=DEVICE)
+    # visualize_gradcam_UNET(model, val_loader, device=DEVICE)
+    exit()
+
     # train the model
     for epoch in range(NUM_EPOCHS):
         # Train
@@ -393,6 +399,8 @@ def main(model_name):
         log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
         log_df.to_csv(log_csv_path, index=False)
 
+
+
         # if epoch // 5 == 0: then save pred as imgs
         if epoch % 5 == 0 or epoch == NUM_EPOCHS:
             # visualize feature maps
@@ -404,10 +412,14 @@ def main(model_name):
                 val_loader, model, unnorm=unorm, model_name=pred_imgs_file_name, folder=model_path,
                 device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
 
-            # save feature maps
-            img_path = val_images[0]
-            visualize_feature_maps(model, img_path, train_mean, train_std, file_name=feature_maps_file_name,
-                                   folder=model_path, device=DEVICE, img_height=IMAGE_HEIGHT, img_width=IMAGE_WIDTH)
+
+
+            # save feature maps, if UNet
+            if model_name == "UNet":
+                img_path = val_images[0]
+                feature_maps_file_name = model_name + "_Epoch" + str(epoch)
+                visualize_feature_maps(model, img_path, train_mean, train_std, file_name=feature_maps_file_name,
+                                       folder=model_path, device=DEVICE, img_height=IMAGE_HEIGHT, img_width=IMAGE_WIDTH)
 
     print("All epochs completed.")
 
@@ -434,6 +446,6 @@ def main(model_name):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_names = ["UNet"]
+    model_names = ["B0"]
     for model_name in model_names:
         main(model_name)
