@@ -302,7 +302,8 @@ class Segformer(nn.Module):
 
         # choose between Upsampling via Scaling or DeConvolution
         # self.upsample = nn.Upsample(scale_factor=4, mode='bicubic', align_corners=True)
-        self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
+        # self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
+        self.upsample = nn.Upsample(scale_factor=4, mode='nearest')
 
     def forward(self, x):
         layer_outputs = self.mit(x, return_layer_outputs=True)

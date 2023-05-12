@@ -275,10 +275,10 @@ def main(model_name):
     if scheduler_name == "PolynomialLRDecay":
         MAX_ITER = int(len(train_loader) * NUM_EPOCHS - (len(train_loader) * WARMUP_EPOCHS))
         print('Polynomial learning rate scheduler - MAX_Iter (number of iterations until decay):', MAX_ITER)
-        POLY_POWER = 1.5 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
+        POLY_POWER = 1.3 # specify the power of the polynomial, 1.0 means linear decay, and 2.0 means quadratic decay
         scheduler = PolynomialLRDecay(optimizer=optimizer,
                                       max_decay_steps=MAX_ITER, # when to stop decay
-                                      end_learning_rate=LEARNING_RATE*1e-4,
+                                      end_learning_rate=LEARNING_RATE*1e-3,
                                       power=POLY_POWER)
 
     # LR Scheduler warmup
@@ -333,8 +333,8 @@ def main(model_name):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Upsample"
-    model_name = model_name + "_" + "Deconv"
+    model_dir = "LR_Tuning"
+    model_name = model_name + "_" + "Poly1,3_MinLR*1e-3"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
