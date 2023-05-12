@@ -31,7 +31,7 @@ from utils import (
     UnNormalize,
     get_mean_std
 )
-from eval_metrics import (BinaryMetrics)
+from eval_metrics import (BinaryMetrics, forward_pass_for_feature_vis)
 from solar_snippet_v2 import ImageProcessor
 
 def main(model_name):
@@ -334,7 +334,7 @@ def main(model_name):
 
     # retrieve model name for saving
     model_dir = "LR_Tuning"
-    model_name = model_name + "_" + "Poly1,3_MinLR*1e-3"
+    model_name = model_name + "_" + "Poly1-3_MinLR1e-3"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -395,6 +395,10 @@ def main(model_name):
 
         # if epoch // 5 == 0: then save pred as imgs
         if epoch % 5 == 0 or epoch == NUM_EPOCHS:
+            # visualize feature maps
+            # forward_pass_for_feature_vis(val_loader, model, 'downs[-1].conv[3]')
+
+            # save some examples to a folder
             img_file_name = model_name + "_Epoch" + str(epoch)
             save_predictions_as_imgs(
                 val_loader, model, unnorm=unorm, model_name=img_file_name, folder=model_path,

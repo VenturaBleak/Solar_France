@@ -184,3 +184,55 @@ class BinaryMetrics():
         model.train()
 
         return avg_metrics
+
+def visualize_feature_maps(model, image, layer_name):
+    # Normalize function for the image
+    def normalize_output(img):
+        img = img - img.min()
+        img = img / img.max()
+        return img
+
+    # Dictionary to store the activations
+    activation = {}
+
+    def get_activation(name):
+        def hook(model, input, output):
+            activation[name] = output.detach()
+
+        return hook
+
+    # Register hook to the specified layer
+    model.downs[-1].conv.register_forward_hook(get_activation(layer_name))
+
+    # Pass image through the model
+    image = image.unsqueeze(0)  # add an extra dimension for batch if needed
+    output = model(image)
+
+    # Access and visualize the stored output (feature maps)
+    act = activation[layer_name].squeeze()
+    num_feature_maps = act.size(0)
+
+    # Create a grid of subplots
+    fig, axarr = plt.subplots(num_feature_maps)
+
+    # Plot each feature map
+    for idx in range(num_feature_maps):
+        axarr[idx].imshow(normalize_output(act[idx]))
+
+    plt.show()
+
+def forward_pass_for_feature_vis(loader, model, layer_name, device="cuda"):
+    model.eval()
+
+    with torch.no_grad():
+        for X, y in loader:
+            X = X.to(device)
+            y = y.float().to(device)
+
+            # Only visualize feature maps for the first image in the batch
+            visualize_feature_maps(model, X[0], layer_name)
+
+            # Break after first batch
+            break
+
+    model.train()
