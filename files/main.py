@@ -352,15 +352,6 @@ def main(model_name):
     # Initialize the best validation metric
     best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
 
-    # ToDo: move this to the correct place
-    # retrieve the image path of the first image in the validation set
-    img_path = val_images[0]
-    print(img_path)
-    from feature_map_visualizer import vis_feature_maps
-    visualize_feature_maps(model, img_path, train_mean, train_std)
-    vis_feature_maps(img_path)
-    exit()
-
     # train the model
     for epoch in range(NUM_EPOCHS):
         # Train
@@ -409,10 +400,15 @@ def main(model_name):
             # forward_pass_for_feature_vis(val_loader, model, 'downs[-1].conv[3]')
 
             # save some examples to a folder
-            img_file_name = model_name + "_Epoch" + str(epoch)
+            pred_imgs_file_name = model_name + "_Epoch" + str(epoch)
             save_predictions_as_imgs(
-                val_loader, model, unnorm=unorm, model_name=img_file_name, folder=model_path,
+                val_loader, model, unnorm=unorm, model_name=pred_imgs_file_name, folder=model_path,
                 device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
+
+            # save feature maps
+            img_path = val_images[0]
+            visualize_feature_maps(model, img_path, train_mean, train_std, file_name=feature_maps_file_name,
+                                   folder=model_path, device=DEVICE, img_height=IMAGE_HEIGHT, img_width=IMAGE_WIDTH)
 
     print("All epochs completed.")
 
