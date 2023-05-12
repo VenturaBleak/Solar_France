@@ -35,23 +35,11 @@ def visualize_feature_maps(model, img_path, train_mean, train_std):
         transforms.ToTensor(),
         transforms.Normalize(mean=train_mean, std=train_std)
     ])
-
-    image = transform(image)
-    print(f"Image shape before: {image.shape}")
-    image = image.unsqueeze(0)
-    print(f"Image shape after: {image.shape}")
-    image = image.to(device)
-
-    # We will save the conv layers in this list
-
-
-    # Get all the model downs blocks as list
-    model_downs = list(model.downs)
-    print(f"model_downs: {model_downs}")
+    image = transform(image).unsqueeze(0).to(device)
 
     # Append all the conv layers to a list
     conv_layers = []
-    for child in model_downs:
+    for child in list(model.downs):
         # print(child.conv)
         for layer in child.conv:  # for each layer in the sequential child
             # print(f"layer: {layer}, type: {type(layer)}")
@@ -59,19 +47,20 @@ def visualize_feature_maps(model, img_path, train_mean, train_std):
                 conv_layers.append(layer)
     print(f"conv_layers: {conv_layers}")
 
-    # Get the weights of the conv layers
+    # Retrieve the weights/filters of the conv layers
     conv_layers_weights = []
     for layer in conv_layers:
         conv_layers_weights.append(layer.weight)
 
-    # Visualising the featuremaps
+    # Retrieve the featuremaps of the layers
     featuremaps = [conv_layers[0](image)]
     for x in range(1, len(conv_layers)):
         featuremaps.append(conv_layers[x](featuremaps[-1]))
 
-    # Visualising the featuremaps
+    # Visualize the featuremaps
     for x in range(len(featuremaps)):
         plt.figure(figsize=(30, 30))
+        plt.title(f"Feature maps of block {x}")
         layers = featuremaps[x][0, :, :, :].detach()
         for i, filter in enumerate(layers):
             if i == 64:
@@ -82,22 +71,26 @@ def visualize_feature_maps(model, img_path, train_mean, train_std):
 
         # plt.savefig('featuremap%s.png'%(x))
     plt.show()
+
+    # Visualize the weights
+    # ToDo: debug this:
+    # Visualising the featuremaps
+    # for x in range(len(featuremaps)):
+    #     plt.figure(figsize=(30, 30))
+    #     layers = featuremaps[x][0, :, :, :].detach()
+    #     for i, filter in enumerate(layers):
+    #         if i == 64:
+    #             break
+    #         plt.subplot(8, 8, i + 1)
+    #         plt.imshow(filter, cmap='gray')
+    #         plt.axis('off')
+    #
+    #     # plt.savefig('featuremap%s.png'%(x))
+    #
+    # plt.show()
+
     exit()
 
-    # Append all the conv layers and their respective weights to the list
-    for i in range(len(model_children)):
-        if type(model_children[i]) == torch.nn.modules.container.ModuleList:  # if the layer is a module
-            for child in model_children[i].children():  # get the children of the module
-                # print(f"child: {child}, type: {type(child)}")
-                if type(child) == DoubleConv:  # @GPT: if the child is type: <class 'model.DoubleConv'>
-                    for layer in child.conv:  # for each layer in the sequential child
-                        # print(f"layer: {layer}, type: {type(layer)}")
-                        if type(layer) ==torch.nn.modules.conv.Conv2d:  # if the layer is Conv2d
-                            conv_layers.append(layer)
-
-    # Take a look at the layers
-    print(f"conv_layers: {conv_layers}")
-    exit()
 
     # Process image to every layer and append output and name of the layer to outputs[] and names[] lists
     outputs = []
