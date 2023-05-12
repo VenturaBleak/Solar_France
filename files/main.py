@@ -31,8 +31,9 @@ from utils import (
     UnNormalize,
     get_mean_std
 )
-from eval_metrics import (BinaryMetrics, forward_pass_for_feature_vis)
+from eval_metrics import (BinaryMetrics)
 from solar_snippet_v2 import ImageProcessor
+from feature_maps import visualize_feature_maps
 
 def main(model_name):
     ############################
@@ -351,6 +352,15 @@ def main(model_name):
     # Initialize the best validation metric
     best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
 
+    # ToDo: move this to the correct place
+    # retrieve the image path of the first image in the validation set
+    img_path = val_images[0]
+    print(img_path)
+    from feature_map_visualizer import vis_feature_maps
+    visualize_feature_maps(model, img_path, train_mean, train_std)
+    vis_feature_maps(img_path)
+    exit()
+
     # train the model
     for epoch in range(NUM_EPOCHS):
         # Train
@@ -429,6 +439,6 @@ def main(model_name):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_names = ["B0"]
+    model_names = ["UNet"]
     for model_name in model_names:
         main(model_name)

@@ -36,6 +36,9 @@ class DoubleConv(nn.Module):
         # Apply the sequential model to the input x
         return self.conv(x)
 
+    def __repr__(self):
+        return "DoubleConv"
+
 class UNET(nn.Module):
     """U-Net model for image segmentation
     replicated from the following paper: https://arxiv.org/abs/1505.04597
