@@ -306,18 +306,19 @@ def main(model_name):
     ############################
     model_dir = "_Initialized"
 
-    try:
-        # load the model
-        load_model(model_dir, model_name, model, parent_dir)
-        print(f"Initialized Model {model_name} loaded.")
-    except FileNotFoundError:
-        # if model is not found, save the initial state of the model
-        print(f"No initialized model with name {model_name} found, saving the initial state of the model.")
-        checkpoint = {
-            "state_dict": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-        }
-        model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+    # ToDO:remove once upsampling tuning is done
+    # try:
+    #     # load the model
+    #     load_model(model_dir, model_name, model, parent_dir)
+    #     print(f"Initialized Model {model_name} loaded.")
+    # except FileNotFoundError:
+    #     # if model is not found, save the initial state of the model
+    #     print(f"No initialized model with name {model_name} found, saving the initial state of the model.")
+    #     checkpoint = {
+    #         "state_dict": model.state_dict(),
+    #         "optimizer": optimizer.state_dict(),
+    #     }
+    #     model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
 
     ############################
     # Visualize sample images
@@ -334,7 +335,7 @@ def main(model_name):
     ############################
 
     # retrieve model name for saving
-    model_dir = "LR_Tuning"
+    model_dir = "Upsample_Tuning"
     model_name = model_name + "_" + "Poly1-3_MinLR1e-3"
 
     # create a GradScaler once at the beginning of training.
@@ -351,12 +352,6 @@ def main(model_name):
 
     # Initialize the best validation metric
     best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
-
-    # ToDo: move this once running
-    from grad_cam import visualize_gradcam_UNET, visualize_gradcam_Segformer
-    visualize_gradcam_Segformer(model, val_loader, device=DEVICE)
-    # visualize_gradcam_UNET(model, val_loader, device=DEVICE)
-    exit()
 
     # train the model
     for epoch in range(NUM_EPOCHS):
@@ -399,8 +394,6 @@ def main(model_name):
         log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
         log_df.to_csv(log_csv_path, index=False)
 
-
-
         # if epoch // 5 == 0: then save pred as imgs
         if epoch % 5 == 0 or epoch == NUM_EPOCHS:
             # visualize feature maps
@@ -412,14 +405,22 @@ def main(model_name):
                 val_loader, model, unnorm=unorm, model_name=pred_imgs_file_name, folder=model_path,
                 device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
 
-
+            # ToDo: move this once running
+            from tranformer_feature_map import compute_gradient
+            compute_gradient(model, val_loader, device=DEVICE)
 
             # save feature maps, if UNet
             if model_name == "UNet":
+                # feature maps
                 img_path = val_images[0]
                 feature_maps_file_name = model_name + "_Epoch" + str(epoch)
                 visualize_feature_maps(model, img_path, train_mean, train_std, file_name=feature_maps_file_name,
                                        folder=model_path, device=DEVICE, img_height=IMAGE_HEIGHT, img_width=IMAGE_WIDTH)
+
+                # ToDo: move this once running
+                from grad_cam import visualize_gradcam_UNET
+                visualize_gradcam_UNET(model, val_loader, device=DEVICE)
+                exit()
 
     print("All epochs completed.")
 
