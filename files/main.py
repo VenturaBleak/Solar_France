@@ -405,10 +405,6 @@ def main(model_name):
                 val_loader, model, unnorm=unorm, model_name=pred_imgs_file_name, folder=model_path,
                 device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
 
-            # ToDo: move this once running
-            from tranformer_feature_map import compute_gradient
-            compute_gradient(model, val_loader, device=DEVICE)
-
             # save feature maps, if UNet
             if model_name == "UNet":
                 # feature maps
@@ -420,7 +416,10 @@ def main(model_name):
                 # ToDo: move this once running
                 from grad_cam import visualize_gradcam_UNET
                 visualize_gradcam_UNET(model, val_loader, device=DEVICE)
-                exit()
+
+                # ToDo: move this once running
+                from tranformer_feature_map import compute_gradient
+                compute_gradient(model, val_loader, device=DEVICE)
 
     print("All epochs completed.")
 
