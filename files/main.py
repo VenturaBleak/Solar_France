@@ -336,7 +336,7 @@ def main(model_name):
 
     # retrieve model name for saving
     model_dir = "Upsample_Tuning"
-    model_name = model_name + "_" + "Poly1-3_MinLR1e-3"
+    model_name = model_name + "_" + "Bilinear"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
