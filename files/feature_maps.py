@@ -114,7 +114,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                         plt.show()
 
                     # Save the figure as an image file
-                    image_file_path = os.path.join(folder, f"{file_name}_fm_kernel_{layer_number/2+1}.png")
+                    image_file_path = os.path.join(folder, f"{file_name}_fm_kernel_{int(layer_number/2+1)}.png")
                     fig.savefig(image_file_path, bbox_inches='tight')
 
         if PLT_AGGREGATED_LAYERS:
