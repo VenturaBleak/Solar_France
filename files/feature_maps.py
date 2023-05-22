@@ -83,7 +83,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                     if i == 64:
                         break
                     plt.subplot(8, 8, i + 1)  # plot in an 8x8 grid
-                    plt.imshow(filter, cmap='gray')  # plot the feature map in grayscale
+                    plt.imshow(filter.cpu(), cmap='gray')  # plot the feature map in grayscale
                     plt.axis('off')  # turn off axis labels
                     plt.title(f'Feature map {i + 1}', fontsize=20)
                 fig.suptitle(f'Feature maps - Block {int(layer_number / 2) + 1}', fontsize=100)
