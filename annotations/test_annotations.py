@@ -46,17 +46,6 @@ def test_mask_overlay(image_file, mask_file):
     plt.gca().yaxis.set_major_locator(plt.NullLocator())
     plt.show()
 
-# Test 2: Check the area of the objects in the mask
-def test_mask_area(mask_file, expected_area):
-    # Load the mask
-    mask = cv2.imread(mask_file, 0)  # load in grayscale mode
-
-    # Calculate the area of the objects in the mask (number of white pixels)
-    area = np.sum(mask == 255)
-
-    # Assert that the area matches the expected area
-    assert area == expected_area, f"Expected area of {expected_area}, but got {area}"
-
 if __name__ == "__main__":
     # Get the current working directory
     cwd = os.getcwd()

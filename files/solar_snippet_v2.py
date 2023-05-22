@@ -278,7 +278,8 @@ class ImageProcessor:
         index = random.randint(0, len(self.solar_image_files) - 1)
         solar_image_path = self.solar_image_files[index]
         solar_mask_path = self.solar_mask_files[index]
-        # print(solar_image_path, solar_mask_path)
+        print(solar_image_path, solar_mask_path)
+        exit()
 
         # Get the building image and mask filenames
         index = random.randint(0, len(self.building_image_files) - 1)
