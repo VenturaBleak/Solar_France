@@ -34,8 +34,9 @@ from utils import (
 from eval_metrics import (BinaryMetrics)
 from solar_snippet_v2 import ImageProcessor
 from feature_maps import visualize_feature_maps
+from grad_cam import visualize_gradcam_UNET
 
-def main(model_name):
+def main(model_arch):
     ############################
     # Hyperparameters
     ############################
@@ -44,7 +45,7 @@ def main(model_name):
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = 25
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -55,7 +56,6 @@ def main(model_name):
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
     CROPPING = False
     CALCULATE_MEAN_STD = False
-    ADDITIONAL_IMAGE_FRACTION = 1
 
     ############################
     # set seeds
@@ -75,31 +75,18 @@ def main(model_name):
     # Define the parent directory of the current working directory
     parent_dir = os.path.dirname(cwd)
 
-    # Define the directories where the data is stored
-    train_folder = 'data_train'
-    val_folder = 'data_test'
-
     # specify the training datasets
-    if DEVICE == "cuda":
-        dataset_fractions = [
-        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.5, 0],
-            ['France_ign', 0.5, 0],
-            ['Munich', 0.5, 0],
-            ['China', 0.5, 0],
-            ['Denmark', 0.5, 0]
-        ]
-    else:
-        dataset_fractions = [
-        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-            ['France_google', 0.002, 0],
-            ['France_ign', 0, 0],
-            ['Munich', 0, 0],
-            ['China', 0, 0],
-            ['Denmark', 0, 0]
-        ]
+    train_folder = 'data_train'
+    train_ds = [
+    # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+        ['France_google', 0.002, 0],
+        ['France_ign', 0., 0],
+        ['Munich', 0., 0],
+        ['China', 0., 0],
+        ['Denmark', 0., 0]
+    ]
 
-    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, train_folder)
+    image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
     train_images, train_masks = fetch_filepaths(
         image_dirs,
         mask_dirs,
@@ -107,12 +94,45 @@ def main(model_name):
         random_state=RANDOM_SEED,
     )
 
+    # specify the validation datasets
+    val_folder = 'data_test'
+
+    val_ds = [
+        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+        ['France_google', 0.005, 0],
+        ['France_ign', 0., 0],
+        ['Munich', 0., 0],
+        ['China', 0., 0],
+        ['Denmark', 0., 0]
+    ]
+
     # get all images in a given folder, that is: val_data
-    val_image_dirs, val_mask_dirs, val_fractions = get_dirs_and_fractions(dataset_fractions, parent_dir, val_folder)
+    val_image_dirs, val_mask_dirs, val_fractions = get_dirs_and_fractions(val_ds, parent_dir, val_folder)
     val_images, val_masks = fetch_filepaths(
         val_image_dirs,
         val_mask_dirs,
         val_fractions,
+        random_state=RANDOM_SEED,
+    )
+
+    # specify the vis datasets
+    vis_folder = 'data_test'
+
+    vis_ds = [
+        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+        ['France_google', 0.005, 0],
+        ['France_ign', 0., 0],
+        ['Munich', 0., 0],
+        ['China', 0., 0],
+        ['Denmark', 0., 0]
+    ]
+
+    # get all images in a given folder, that is: val_data
+    vis_image_dirs, vis_mask_dirs, vis_fractions = get_dirs_and_fractions(vis_ds, parent_dir, vis_folder)
+    vis_images, vis_masks = fetch_filepaths(
+        vis_image_dirs,
+        vis_mask_dirs,
+        vis_fractions,
         random_state=RANDOM_SEED,
     )
 
@@ -201,15 +221,27 @@ def main(model_name):
         pin_memory=True
     )
 
+    _, vis_loader = get_loaders(
+        train_images=train_images,
+        train_masks=train_masks,
+        val_images=vis_images,
+        val_masks=vis_masks,
+        batch_size=BATCH_SIZE,
+        train_transforms=train_transforms,
+        val_transforms=val_transforms,
+        num_workers=NUM_WORKERS,
+        pin_memory=True
+    )
+
     ############################
     # Model & Loss function
     ############################
-    if model_name == "UNet":
+    if model_arch == "UNet":
         # UNET
         model = UNET(in_channels=3, out_channels=1).to(DEVICE)
     else:
         # also, experiment with bilinear interpolation on or off -> final upsampling layer of the model
-        model = create_segformer(model_name, channels=3, num_classes=1).to(DEVICE)
+        model = create_segformer(model_arch, channels=3, num_classes=1).to(DEVICE)
 
     # model summary
     summary(model, input_size=(BATCH_SIZE, 3, IMAGE_HEIGHT, IMAGE_WIDTH), device=DEVICE)
@@ -306,19 +338,18 @@ def main(model_name):
     ############################
     model_dir = "_Initialized"
 
-    # ToDO:remove once upsampling tuning is done
-    # try:
-    #     # load the model
-    #     load_model(model_dir, model_name, model, parent_dir)
-    #     print(f"Initialized Model {model_name} loaded.")
-    # except FileNotFoundError:
-    #     # if model is not found, save the initial state of the model
-    #     print(f"No initialized model with name {model_name} found, saving the initial state of the model.")
-    #     checkpoint = {
-    #         "state_dict": model.state_dict(),
-    #         "optimizer": optimizer.state_dict(),
-    #     }
-    #     model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+    try:
+        # load the model
+        load_model(model_dir, model_arch, model, parent_dir)
+        print(f"Initialized Model {model_arch} loaded.")
+    except FileNotFoundError:
+        # if model is not found, save the initial state of the model
+        print(f"No initialized model with name {model_arch} found, saving the initial state of the model.")
+        checkpoint = {
+            "state_dict": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        }
+        model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
     ############################
     # Visualize sample images
@@ -336,7 +367,7 @@ def main(model_name):
 
     # retrieve model name for saving
     model_dir = "Upsample_Tuning"
-    model_name = model_name + "_" + "Bicubic"
+    model_name = model_arch + "_" + "Bicubic"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -387,8 +418,8 @@ def main(model_name):
 
             # save some examples to a folder
             save_predictions_as_imgs(
-                val_loader, model, unnorm=unorm, model_name=model_name, folder=model_path,
-                device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
+                vis_loader, model, unnorm=unorm, model_name=model_name, folder=model_path,
+                device=DEVICE, BATCH_SIZE=BATCH_SIZE)
 
         # Save the logs
         log_csv_path = os.path.join(model_path, f"{model_name}_logs.csv")
@@ -396,44 +427,36 @@ def main(model_name):
 
         # if epoch // 5 == 0: then save pred as imgs
         if epoch % 5 == 0 or epoch == NUM_EPOCHS:
-            # visualize feature maps
-            # forward_pass_for_feature_vis(val_loader, model, 'downs[-1].conv[3]')
-
             # save some examples to a folder
-            pred_imgs_file_name = model_name + "_Epoch" + str(epoch)
+            imgs_file_name = model_name + "_Epoch" + str(epoch)
             save_predictions_as_imgs(
-                val_loader, model, unnorm=unorm, model_name=pred_imgs_file_name, folder=model_path,
-                device=DEVICE, testing=False, BATCH_SIZE=BATCH_SIZE)
+                vis_loader, model, unnorm=unorm, model_name=imgs_file_name, folder=model_path,
+                device=DEVICE, BATCH_SIZE=BATCH_SIZE)
 
             # save feature maps, if UNet
-            if model_name == "UNet":
-                # feature maps
-                img_path = val_images[0]
-                feature_maps_file_name = model_name + "_Epoch" + str(epoch)
-                visualize_feature_maps(model, img_path, train_mean, train_std, file_name=feature_maps_file_name,
+            if model_arch == "UNet":
+                img_path = vis_images[0]
+                visualize_feature_maps(model, img_path, train_mean, train_std, file_name=imgs_file_name,
                                        folder=model_path, device=DEVICE, img_height=IMAGE_HEIGHT, img_width=IMAGE_WIDTH)
 
-                # ToDo: move this once running
-                from grad_cam import visualize_gradcam_UNET
-                visualize_gradcam_UNET(model, val_loader, device=DEVICE)
+                # Grad-CAM
+                visualize_gradcam_UNET(model, vis_loader, file_name=imgs_file_name, folder=model_path, device=DEVICE)
 
                 # ToDo: move this once running
                 from tranformer_feature_map import compute_gradient
-                compute_gradient(model, val_loader, device=DEVICE)
-
-    print("All epochs completed.")
+                # compute_gradient(model, val_loader, device=DEVICE)
 
     #time end
     end_time = time.time()
 
     # print total training time in hours, minutes, seconds
-    print("Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
+    print("All epochs completed. Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
 
-    # create GIF from the saved images
+    # create GIF from the pred overlay images
     for index in [2,5,8,11,14]:
-        # img_file_name = everything until excluding the epoch number, e.g. B0_CosineAnnealingWarmRestarts_LR2e-4_Epoch
-        image_name_pattern = "{}_Epoch(\d+)".format(model_name)
-        output_gif_name = model_name + "_GIF" + str(index) + ".gif"
+        # regex pattern to include include: model_name + "_Epoch" + 1-3 digit number (1 to 999) + "_pred.png"
+        image_name_pattern = "{}_Epoch(\d{{1,3}})_pred.png".format(model_name)
+        output_gif_name = model_name + "_pred" + "_GIF" + str(index) + ".gif"
         font_path = os.path.join(cwd, "Arial_Bold.ttf")
         create_gif_from_images(image_folder=model_path,
                                image_name_pattern=image_name_pattern,
@@ -442,10 +465,53 @@ def main(model_name):
                                img_height=416,
                                img_width=416,
                                font_path=font_path,
-                               num_epochs = NUM_EPOCHS)
+                               num_epochs = NUM_EPOCHS,
+                               crop_image=True)
+
+    # create GIF from the feature map images
+    image_name_pattern = "{}_Epoch(\d{{1,3}})_aggregated".format(model_name)
+    output_gif_name = model_name + "_fm_aggregated" + "_GIF.gif"
+    font_path = os.path.join(cwd, "Arial_Bold.ttf")
+    create_gif_from_images(image_folder=model_path,
+                           image_name_pattern=image_name_pattern,
+                           output_gif_name=output_gif_name,
+                           image_index=0,
+                           img_height=416,
+                           img_width=416,
+                           font_path=font_path,
+                           num_epochs=NUM_EPOCHS,
+                           crop_image=False)
+
+    # create GIF from the grad_cam images
+    image_name_pattern = "{}_Epoch(\d{{1,3}})_aggregated".format(model_name)
+    output_gif_name = model_name + "_fm_aggregated" + "_GIF.gif"
+    font_path = os.path.join(cwd, "Arial_Bold.ttf")
+    create_gif_from_images(image_folder=model_path,
+                           image_name_pattern=image_name_pattern,
+                           output_gif_name=output_gif_name,
+                           image_index=0,
+                           img_height=416,
+                           img_width=416,
+                           font_path=font_path,
+                           num_epochs=NUM_EPOCHS,
+                           crop_image=False)
+
+    # create GIF from the grad_cam images
+    image_name_pattern = "{}_Epoch(\d{{1,3}})_GradCAM++".format(model_name)
+    output_gif_name = model_name + "GradCAM++" + "_GIF.gif"
+    font_path = os.path.join(cwd, "Arial_Bold.ttf")
+    create_gif_from_images(image_folder=model_path,
+                           image_name_pattern=image_name_pattern,
+                           output_gif_name=output_gif_name,
+                           image_index=0,
+                           img_height=416,
+                           img_width=416,
+                           font_path=font_path,
+                           num_epochs=NUM_EPOCHS,
+                           crop_image=False)
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_names = ["B0"]
-    for model_name in model_names:
-        main(model_name)
+    model_archs = ["UNet"]
+    for model_arch in model_archs:
+        main(model_arch)

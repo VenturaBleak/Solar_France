@@ -1,22 +1,50 @@
-import cv2
+from PIL import Image
+import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors
+import os
 
-# Test 1: Visually inspect some of your masks
+from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors
+
 def test_mask_overlay(image_file, mask_file):
-    # Load the image and mask
-    image = cv2.imread(image_file)
-    mask = cv2.imread(mask_file, 0)  # load in grayscale mode
+    # Load the image and mask with PIL
+    image = Image.open(image_file).convert('RGBA')  # convert to RGBA
+    mask = Image.open(mask_file).convert('L')  # convert to grayscale
 
-    # Create an overlay by adding the image and mask
-    overlay = cv2.addWeighted(image, 0.6, cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR), 0.4, 0)
+    # Convert the PIL Images to numpy arrays for manipulation
+    image = np.array(image)
+    mask = np.array(mask)
+
+    # Create a semi-transparent color for the mask
+    overlay_color = [255, 0, 255, 128]  # RGBA: last value is alpha for transparency
+
+    # Create the mask image in RGBA format
+    mask_rgba = np.zeros((mask.shape[0], mask.shape[1], 4), dtype=np.uint8)
+    mask_rgba[mask == 255] = overlay_color
+
+    # Combine the image and the mask
+    overlay = np.where(mask_rgba != 0, mask_rgba, image)
+
+    # Convert the overlay back to PIL Image
+    overlay_pil = Image.fromarray(overlay)
+
+    # Resize the image for zooming (150%)
+    overlay_zoom = overlay_pil.resize((int(overlay_pil.size[0]*1.5), int(overlay_pil.size[1]*1.5)), Image.LANCZOS)
+    overlay = np.array(overlay_zoom)
 
     # Display the overlay
-    plt.imshow(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
+    fig, ax = plt.subplots(figsize=(9,9))
+    ax.imshow(overlay)
+    ax.axis('off')  # Turn off axis
+    plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0,
+                hspace = 0, wspace = 0)
+    plt.margins(0,0)
+    plt.gca().xaxis.set_major_locator(plt.NullLocator())
+    plt.gca().yaxis.set_major_locator(plt.NullLocator())
     plt.show()
-
-    # save the overlay under the name of the mask + _overlay.png
-    cv2.imwrite(mask_file[:-4] + '_overlay.png', overlay)
-
 
 # Test 2: Check the area of the objects in the mask
 def test_mask_area(mask_file, expected_area):
@@ -29,9 +57,34 @@ def test_mask_area(mask_file, expected_area):
     # Assert that the area matches the expected area
     assert area == expected_area, f"Expected area of {expected_area}, but got {area}"
 
+if __name__ == "__main__":
+    # Get the current working directory
+    cwd = os.getcwd()
 
-# Call the tests
-test_mask_overlay('09a0161d-0aa8-43cb-83f3-7eac02d8bb76_rgb_hr_20181.png', r'09a0161d-0aa8-43cb-83f3-7eac02d8bb76_rgb_hr_2018.png')
-test_mask_overlay('09b09f45-21c2-442f-aa95-aa05c65ef0dc_rgb_hr_20181.png', r'09b09f45-21c2-442f-aa95-aa05c65ef0dc_rgb_hr_2018.png')
+    # Define the parent directory of the current working directory
+    parent_dir = os.path.dirname(cwd)
 
-# test_mask_area('00bd7de8-3272-4475-bec0-33cf2e2042e6_rgb_hr_2018.png_mask.png', expected_area)
+    # Heerlen or ZL
+    REGION = "Heerlen_2018_HR_output"
+
+    # Define output folders
+    mask_folder = os.path.join(parent_dir, "data_NL", REGION, "masks_positive")  # Replace "directory_to_specify" with the actual directory
+    image_folder = os.path.join(parent_dir, "data_NL", REGION, "images_positive")  # Replace "directory_to_specify" with the actual directory
+
+    # The number of images to process
+    x = 5  # for example
+
+    # Get all the image files in the directory
+    image_files = os.listdir(image_folder)
+
+    # Ensure we have corresponding mask files for each image
+    mask_files = [img_file for img_file in image_files if os.path.exists(os.path.join(mask_folder, img_file))]
+
+    # Loop over the first x image and mask files
+    for i in range(min(x, len(mask_files))):
+        # Get the full path of the image and mask files
+        image_file = os.path.join(image_folder, mask_files[i])
+        mask_file = os.path.join(mask_folder, mask_files[i])
+
+        # Call the test
+        test_mask_overlay(image_file, mask_file)

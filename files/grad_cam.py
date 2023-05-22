@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pytorch_grad_cam import GradCAM, GradCAMPlusPlus, EigenGradCAM, AblationCAM, RandomCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
-
+import os
 
 class SemanticSegmentationTarget:
     def __init__(self, category, mask):
@@ -14,15 +14,18 @@ class SemanticSegmentationTarget:
     def __call__(self, model_output):
         return (model_output[0, :, :] * self.mask).sum()
 
-def visualize_gradcam_UNET(model, val_loader, device):
+def visualize_gradcam_UNET(model, val_loader, file_name, folder, device):
     """
     Visualize the gradient class activation maps of the model.
 
     Parameters:
     model: PyTorch model whose gradcam are to be visualized.
     val_loader: Validation data loader.
+    file_name: Name of the file to save the gradcam visualizations to.
     device: Device to perform computations on.
     """
+    SHOW = False
+
     device = torch.device(device)
 
     original_model_mode = model.training
@@ -37,31 +40,48 @@ def visualize_gradcam_UNET(model, val_loader, device):
         logits = model(X_val)
         preds = torch.sigmoid(logits)  # convert logits to probabilities
 
+    # specify the target category and prediction threshold
     target_category = 0
     threshold = preds.max() * 0.95
     target_mask = (preds[0, target_category, :, :] > threshold).float()
 
     targets = [SemanticSegmentationTarget(target_category, target_mask)]
 
+    # specify the CAM visualization methods
     methods = [("GradCAM", GradCAM(model=model, target_layers=target_layers, use_cuda=device.type == 'cuda')),
                ("GradCAM++", GradCAMPlusPlus(model=model, target_layers=target_layers, use_cuda=device.type == 'cuda')),
-               ("EigenGradCAM", EigenGradCAM(model=model, target_layers=target_layers, use_cuda=device.type == 'cuda')),
-               ("RandomCAM", RandomCAM(model=model, target_layers=target_layers, use_cuda=device.type == 'cuda'))]
+               ("EigenGradCAM", EigenGradCAM(model=model, target_layers=target_layers, use_cuda=device.type == 'cuda'))]
+
+    num_images = 8
 
     for method_name, cam in methods:
+        fig, axs = plt.subplots(2, 4, figsize=(15, 7))  # Setup a 2x4 grid of subplots
         with cam as c:
-            grayscale_cam = c(input_tensor=X_val, targets=targets)[0, :]
-            img = X_val[0].cpu().numpy().transpose(1, 2, 0)
-            img = ((img - img.min()) / (img.max() - img.min())).astype(np.float32)
+            for i in range(num_images):
+                grayscale_cam = c(input_tensor=X_val[i].unsqueeze(0), targets=targets)[0, :]
+                img = X_val[i].cpu().numpy().transpose(1, 2, 0)
+                img = ((img - img.min()) / (img.max() - img.min())).astype(np.float32)
 
-            cam_image = show_cam_on_image(img, grayscale_cam, use_rgb=True)
-            plt.imshow(cam_image)
-            plt.title(method_name)
-            plt.axis('off')
-            plt.show()
+                cam_image = show_cam_on_image(img, grayscale_cam, use_rgb=True)
+
+                row = i // 4  # Change here for a 2x4 grid
+                col = i % 4  # Change here for a 2x4 grid
+                axs[row, col].imshow(cam_image)
+                axs[row, col].set_title(f'Image {i + 1}', fontsize=18)
+                axs[row, col].axis('off')
+
+            # Add a title to the figure
+            fig.suptitle(method_name, fontsize=28)
+
+            # show the image
+            if SHOW == True:
+                fig.show()
+
+            # Save the figure as an image file
+            image_file_path = os.path.join(folder, f"{file_name}_{method_name}.png")
+            fig.savefig(image_file_path, bbox_inches='tight', pad_inches=0)
 
     model.train(mode=original_model_mode)
-
 
 def visualize_gradcam_Segformer(model, val_loader, device):
     """

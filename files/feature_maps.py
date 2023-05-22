@@ -20,9 +20,10 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
     img_height: The height to resize the input image to.
     img_width: The width to resize the input image to.
     """
-    PLT_MULT_LAYERS = False
-    PLT_KERNEL = False
+    PLT_MULT_LAYERS = True
+    PLT_KERNEL = True
     PLT_AGGREGATED_LAYERS = True
+    SHOW = False
 
     model.eval()
     with torch.no_grad():
@@ -32,8 +33,14 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
         # Load the image
         image = Image.open(img_path).convert("RGB")
 
+        # show the image
+        if SHOW == True:
+            plt.imshow(image)
+            plt.axis('off')
+            plt.show()
+
         # Display the loaded image
-        plt.imshow(image)
+        plt.savefig(os.path.join(folder, f"{file_name}_fm_original.png"), bbox_inches='tight', pad_inches=0)
 
         # Define image transformations: resize, convert to tensor, and normalize
         transform = transforms.Compose([
@@ -56,7 +63,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                 if type(layer) == torch.nn.modules.conv.Conv2d:
                     conv_layers.append(layer)
 
-        print(f"conv_layers: {conv_layers}")
+        # print(f"conv_layers: {conv_layers}")
 
         if PLT_MULT_LAYERS:
             # Initialize a list to store the feature maps of each layer
@@ -78,12 +85,14 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                     plt.subplot(8, 8, i + 1)  # plot in an 8x8 grid
                     plt.imshow(filter, cmap='gray')  # plot the feature map in grayscale
                     plt.axis('off')  # turn off axis labels
-                    plt.title(f'Feature map {i + 1}', fontsize=30)
+                    plt.title(f'Feature map {i + 1}', fontsize=20)
                 fig.suptitle(f'Feature maps - Block {int(layer_number / 2) + 1}', fontsize=100)
-                plt.show()
+
+                if SHOW == True:
+                    plt.show()
 
                 # Save the figure as an image file
-                image_file_path = os.path.join(folder, f"{file_name}_mult_layers_{layer_number}.png")
+                image_file_path = os.path.join(folder, f"{file_name}_fm_mult_layers_{layer_number}.png")
                 fig.savefig(image_file_path, bbox_inches='tight')
 
         if PLT_KERNEL:
@@ -98,12 +107,14 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                         plt.subplot(8, 8, i + 1)
                         plt.imshow(weight[0], cmap='gray')  # visualize the first channel of the weight
                         plt.axis('off')
-                        plt.title(f'Filter {i + 1}', fontsize=30)
+                        plt.title(f'Filter {i + 1}', fontsize=20)
                     fig.suptitle(f'Filters - Block {int(layer_number / 2) + 1}', fontsize=100)
-                    plt.show()
+
+                    if SHOW == True:
+                        plt.show()
 
                     # Save the figure as an image file
-                    image_file_path = os.path.join(folder, f"{file_name}_kernel_{layer_number}.png")
+                    image_file_path = os.path.join(folder, f"{file_name}_fm_kernel_{layer_number/2+1}.png")
                     fig.savefig(image_file_path, bbox_inches='tight')
 
         if PLT_AGGREGATED_LAYERS:
@@ -159,16 +170,16 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                 a.axis("off")
 
                 # Add a title to the subplot. The title is the number of the layer in this case.
-                a.set_title(f"Block {int(i/2)+1} - Layer {(i + 1)%2+1}", fontsize=30)
+                a.set_title(f"Block {int(i/2)+1} - Layer {(i%2)+1}", fontsize=30)
 
             # Add a title to the figure
             fig.suptitle('Feature maps', fontsize=100)
 
-            # Display the figure
-            plt.show()
+            if SHOW == True:
+                plt.show()
 
             # Save the figure as an image file
-            image_file_path = os.path.join(folder, f"{file_name}_aggregated.png")
+            image_file_path = os.path.join(folder, f"{file_name}_fm_aggregated.png")
             fig.savefig(image_file_path, bbox_inches='tight')
 
     model.train()

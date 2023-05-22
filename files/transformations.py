@@ -113,7 +113,7 @@ class TransformationTypes:
         ##############################
 
         # Zooming in and out by max x%
-        ZOOM = 0.2  # 0.1 = 10% -> 10% zoom in or out
+        ZOOM = 0.25
         PADDING = int(max(self.image_height, self.image_width) * ZOOM)
         if random.random() < 0.5:
             # Resize the image and mask with some padding

@@ -4,6 +4,10 @@ import shutil
 import os
 from PIL import Image, ImageDraw
 
+# specify whether to upsample the mask or not
+UPSAMPLE = True
+upsample_factor = 3
+
 # Get the current working directory
 cwd = os.getcwd()
 
@@ -37,9 +41,6 @@ for json_file in json_files:
     with open(json_file) as f:
         data = json.load(f)
 
-    # Define the upsample factor
-    upsample_factor = 30
-
     # Iterate over each image in the JSON file
     for image in data['images']:
         image_id = image['id']
@@ -47,33 +48,54 @@ for json_file in json_files:
         height = image['height']
         file_name = image['file_name']
 
-        # Create a blank mask for this image, upscaled by the upsample factor
-        mask = Image.new('L', (width * upsample_factor, height * upsample_factor), 0)  # 'L' for 8-bit pixels, black and white
+        if UPSAMPLE == True:
 
-        # Iterate over each annotation in the JSON file
-        for annotation in data['annotations']:
-            # Check if the annotation belongs to the current image
-            if annotation['image_id'] == image_id:
-                # Draw the polygon annotation on the mask
-                draw = ImageDraw.Draw(mask)
-                segmentation = [point * upsample_factor for point in annotation['segmentation'][0]]
+            # Create a blank mask for this image, upscaled by the upsample factor
+            mask = Image.new('L', (int(width/2 * upsample_factor), int(height/2 * upsample_factor)), 0)  # 'L' for 8-bit pixels, black and white
 
-                # Reshape the segmentation to a list of tuples, each representing a vertex of the polygon
-                polygon = list(map(tuple, np.reshape(segmentation, (-1, 2))))
-                # Draw the polygon on the mask
-                draw.polygon(polygon, outline=1, fill=255)  # fill with white (255)
+            # Iterate over each annotation in the JSON file
+            for annotation in data['annotations']:
+                # Check if the annotation belongs to the current image
+                if annotation['image_id'] == image_id:
+                    # Draw the polygon annotation on the mask
+                    draw = ImageDraw.Draw(mask)
+                    segmentation = [(point - 100) * upsample_factor for point in annotation['segmentation'][0]]
 
-        # Downsample the mask to the original size, this will perform a simple anti-aliasing
-        mask = mask.resize((width, height), Image.ANTIALIAS)
+                    # Reshape the segmentation to a list of tuples, each representing a vertex of the polygon
+                    polygon = list(map(tuple, np.reshape(segmentation, (-1, 2))))
+                    # Draw the polygon on the mask
+                    draw.polygon(polygon, outline=255, fill=255, width=0)  # fill with white (255)
 
-        # Convert the mask to a numpy array
-        mask_array = np.array(mask)
+            # Downsample the mask to the original size, this will perform a simple anti-aliasing
+            mask = mask.resize((200, 200), Image.Resampling.LANCZOS)
 
-        # Threshold the mask to ensure it's binary
-        mask_array = np.where(mask_array > 128, 255, 0)
+            # GPT: add padding to the mask to get to the original size width x height
 
-        # Convert the mask back to a PIL image
-        mask = Image.fromarray(mask_array.astype('uint8'), 'L')
+            # Convert the mask to a numpy array
+            mask_array = np.array(mask)
+
+            # Threshold the mask to ensure it's binary
+            mask_array = np.where(mask_array > 50, 255, 0)
+
+            # Convert the mask back to a PIL image
+            mask = Image.fromarray(mask_array.astype('uint8'), 'L')
+
+        else:
+            # Create a blank mask for this image
+            mask = Image.new('L', (width, height), 0)  # 'L' for 8-bit pixels, black and white
+
+            # Iterate over each annotation in the JSON file
+            for annotation in data['annotations']:
+                # Check if the annotation belongs to the current image
+                if annotation['image_id'] == image_id:
+                    # Draw the polygon annotation on the mask
+                    draw = ImageDraw.Draw(mask)
+                    segmentation = annotation['segmentation'][0]
+
+                    # Reshape the segmentation to a list of tuples, each representing a vertex of the polygon
+                    polygon = list(map(tuple, np.reshape(segmentation, (-1, 2))))
+                    # Draw the polygon on the mask
+                    draw.polygon(polygon, outline=255, fill=255)  # fill with white (255)
 
         # Calculate the coordinates of the center crop
         left = (width - 200) // 2
@@ -81,14 +103,14 @@ for json_file in json_files:
         right = (width + 200) // 2
         bottom = (height + 200) // 2
 
-        # Crop the center part from the original mask
-        center_crop = mask.crop((left, top, right, bottom))
-
         # Create a new mask that is all zeros
         center_crop_mask = Image.new('L', (width, height), 0)
 
-        # Paste the center crop into the new mask
-        center_crop_mask.paste(center_crop, (left, top))
+        if UPSAMPLE == True:
+            center_crop_mask.paste(mask, (left, top))
+        else:
+            # Paste the center crop into the new mask
+            center_crop_mask.paste(mask.crop((left, top, right, bottom)), (left, top))
 
         # Save the mask image, with a name based on the image file name
         center_crop_mask.save(f'{file_name}')
@@ -98,6 +120,11 @@ for json_file in json_files:
 
         # Check if the image exists
         assert os.path.exists(image_file_path), f"The image {image_file_path} does not exist."
+
+        # Check that the unique values in the array are only 0 and 255
+        center_crop_mask_array = np.array(center_crop_mask)
+        assert np.array_equal(np.unique(center_crop_mask_array),
+                              np.array([0, 255])), "The mask contains values other than 0 and 255."
 
         # move the mask to the output folder and copy the image to the other output folder
         if os.path.exists(image_file_path):

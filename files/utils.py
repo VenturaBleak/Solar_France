@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from torchvision import transforms
 from PIL import Image, ImageSequence, ImageDraw, ImageFont
 
-
 def generate_model_name(architecture, loss_function, optimizer, dataset_names):
     model_name = f"{architecture}_{loss_function}_{optimizer}"
     for dataset_name in dataset_names:
@@ -49,8 +48,8 @@ def count_samples_in_loader(loader):
         total_samples += images.shape[0]
     return total_samples
 
-def visualize_sample_images(train_loader, train_mean, train_std, batch_size, unorm):
-    images, masks = next(iter(train_loader))
+def visualize_sample_images(loader, train_mean, train_std, batch_size, unorm):
+    images, masks = next(iter(loader))
     n_samples = batch_size // 2
     image_size = images.shape[2]  # assuming images are square
 
@@ -66,7 +65,7 @@ def visualize_sample_images(train_loader, train_mean, train_std, batch_size, uno
         overlay[mask == 1] = [1, 0.5, 0]
 
         overlay_img = np.zeros((mask.shape[0], mask.shape[1], 4))
-        overlay_img[mask == 1] = matplotlib.colors.to_rgba('purple', alpha=0.35)
+        overlay_img[mask == 1] = matplotlib.colors.to_rgba('magenta', alpha=0.35)
         overlay_img[mask == 0] = matplotlib.colors.to_rgba('none', alpha=0)
 
         axs[i, 0].axis("off")
@@ -101,12 +100,7 @@ def overlay_on_image(img, mask, color, alpha=0.35):
     blended = np.transpose(np.array(blended), (2, 0, 1))
     return torch.from_numpy(blended).float() / 255.  # Divide by 255 to convert back to 0-1 range
 
-def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda",
-                             testing=False, BATCH_SIZE=16):
-    if testing == True:
-        name_extension = "test"
-    else:
-        name_extension = "val"
+def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_images/", device="cuda", BATCH_SIZE=16):
 
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -153,13 +147,13 @@ def save_predictions_as_imgs(loader, model, unnorm, model_name, folder="saved_im
 
         stacked_images = torch.cat(all_images, dim=2)
 
-        path = os.path.join(folder, f"{model_name}_{name_extension}.png")
+        path = os.path.join(folder, f"{model_name}_pred.png")
         torchvision.utils.save_image(stacked_images, path)
 
         model.train()
 
 def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, image_index, img_height, img_width,
-                           font_path, num_epochs):
+                           font_path, num_epochs, crop_image=False):
     """
     Create a GIF from a subset of images in a folder.
 
@@ -171,6 +165,8 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
         img_height (int): Height of the individual image.
         img_width (int): Width of the individual image.
         font_path (str): Path to the .ttf file for the desired font.
+        num_epochs (int): Number of epochs for which the model was trained.
+        crop_image (bool): Whether to crop the image to the region of interest.
 
     Returns:
         None
@@ -200,12 +196,13 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
         # Open the image file
         img = Image.open(image_files[epoch])
 
-        # Cut out the selected image-mask-prediction combination
-        selected_img = img.crop((x_start, 0, x_end, img_height))
+        # Cut out the selected image-mask-prediction combination, if crop_image is True
+        selected_img = img.crop((x_start, 0, x_end, img_height)) if crop_image else img
 
         # Create a draw object and specify the font size and color
         draw = ImageDraw.Draw(selected_img)
-        font = ImageFont.truetype(font_path, 18)  # You may need to adjust the font size
+        font_size = int(selected_img.height ** 0.5)
+        font = ImageFont.truetype(font_path, font_size)  # You may need to adjust the font size
 
         # Add text to the bottom right corner
         text = f"Epoch {epoch}"
@@ -230,7 +227,7 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
     # Create the GIF
     if selected_images:  # only if the list is not empty
         selected_images[0].save(os.path.join(image_folder, output_gif_name), save_all=True,
-                                append_images=selected_images[1:], optimize=False, duration=num_epochs * 10, loop=0,
+                                append_images=selected_images[1:], optimize=False, duration=num_epochs * 15, loop=0,
                                 dither=Image.FLOYDSTEINBERG)
         print(f"Created GIF '{output_gif_name}' with {len(selected_images)} images.")
     else:
