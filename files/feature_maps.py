@@ -41,7 +41,6 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
 
         # Display the loaded image
         plt.savefig(os.path.join(folder, f"{file_name}_fm_original.png"), bbox_inches='tight', pad_inches=0)
-        plt.close()
 
         # Define image transformations: resize, convert to tensor, and normalize
         transform = transforms.Compose([
