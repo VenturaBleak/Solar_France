@@ -184,6 +184,5 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
             image_file_path = os.path.join(folder, f"{file_name}_fm_aggregated.png")
             fig.savefig(image_file_path, bbox_inches='tight')
             plt.close(fig)
-            plt.close(a)
 
     model.train()
