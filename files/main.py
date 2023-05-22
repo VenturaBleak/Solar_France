@@ -443,7 +443,7 @@ def main(model_arch):
                 visualize_gradcam_UNET(model, vis_loader, file_name=imgs_file_name, folder=model_path, device=DEVICE)
 
                 # ToDo: move this once running
-                from tranformer_feature_map import compute_gradient
+                # from tranformer_feature_map import compute_gradient
                 # compute_gradient(model, val_loader, device=DEVICE)
 
     #time end
