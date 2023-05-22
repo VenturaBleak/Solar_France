@@ -105,7 +105,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                         if i == 64:
                             break
                         plt.subplot(8, 8, i + 1)
-                        plt.imshow(weight[0], cmap='gray')  # visualize the first channel of the weight
+                        plt.imshow(weight[0].cpu(), cmap='gray')  # visualize the first channel of the weight
                         plt.axis('off')
                         plt.title(f'Filter {i + 1}', fontsize=20)
                     fig.suptitle(f'Filters - Block {int(layer_number / 2) + 1}', fontsize=100)
@@ -141,7 +141,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                 # Remove the batch dimension from the feature map using the squeeze() function.
                 # The output feature map is a 4D tensor with shape (batch_size, channels, height, width).
                 # After squeezing, it becomes a 3D tensor with shape (channels, height, width).
-                feature_map = feature_map.squeeze(0)
+                feature_map = feature_map.squeeze(0).cpu()
 
                 # Convert the 3D tensor to 2D by summing the same element of every channel.
                 # This results in a grayscale image where each pixel's value is the sum of that pixel's values across all channels.
