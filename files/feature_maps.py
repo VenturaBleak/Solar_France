@@ -41,6 +41,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
 
         # Display the loaded image
         plt.savefig(os.path.join(folder, f"{file_name}_fm_original.png"), bbox_inches='tight', pad_inches=0)
+        plt.close()
 
         # Define image transformations: resize, convert to tensor, and normalize
         transform = transforms.Compose([
@@ -94,6 +95,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                 # Save the figure as an image file
                 image_file_path = os.path.join(folder, f"{file_name}_fm_mult_layers_{layer_number}.png")
                 fig.savefig(image_file_path, bbox_inches='tight')
+                plt.close(fig)
 
         if PLT_KERNEL:
             # Visualize the weights
@@ -116,6 +118,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                     # Save the figure as an image file
                     image_file_path = os.path.join(folder, f"{file_name}_fm_kernel_{int(layer_number/2+1)}.png")
                     fig.savefig(image_file_path, bbox_inches='tight')
+                    plt.close(fig)
 
         if PLT_AGGREGATED_LAYERS:
             # Initialize empty lists for storing outputs from each convolutional layer and the names of the layers
@@ -181,5 +184,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
             # Save the figure as an image file
             image_file_path = os.path.join(folder, f"{file_name}_fm_aggregated.png")
             fig.savefig(image_file_path, bbox_inches='tight')
+            plt.close(fig)
+            plt.close(a)
 
     model.train()

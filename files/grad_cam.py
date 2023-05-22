@@ -80,6 +80,7 @@ def visualize_gradcam_UNET(model, val_loader, file_name, folder, device):
             # Save the figure as an image file
             image_file_path = os.path.join(folder, f"{file_name}_{method_name}.png")
             fig.savefig(image_file_path, bbox_inches='tight', pad_inches=0)
+            plt.close(fig)
 
     model.train(mode=original_model_mode)
 

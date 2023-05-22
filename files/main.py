@@ -10,6 +10,7 @@ from torchvision import transforms
 from torchinfo import summary
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 # repo files
 from model import (UNET,
@@ -37,6 +38,7 @@ from feature_maps import visualize_feature_maps
 from grad_cam import visualize_gradcam_UNET
 
 def main(model_arch):
+    plt.ioff()
     ############################
     # Hyperparameters
     ############################
@@ -445,6 +447,8 @@ def main(model_arch):
                 # ToDo: move this once running
                 # from tranformer_feature_map import compute_gradient
                 # compute_gradient(model, val_loader, device=DEVICE)
+
+                plt.close('all')
 
     #time end
     end_time = time.time()
