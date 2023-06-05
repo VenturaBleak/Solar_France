@@ -47,7 +47,7 @@ def main(model_arch):
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 100
+    NUM_EPOCHS = 200
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
