@@ -77,6 +77,7 @@ def visualize_sample_images(loader, train_mean, train_std, batch_size, unorm):
     # Remove padding and white background
     plt.subplots_adjust(wspace=0, hspace=0, left=0, right=1, bottom=0, top=1)
     plt.show()
+    plt.close(fig)
 
 def update_log_df(log_df, metric_dict, epoch, train_loss, scheduler):
     new_row = {"epoch": epoch, "learning_rate": scheduler.get_last_lr()[0], "train_loss": train_loss, **metric_dict}

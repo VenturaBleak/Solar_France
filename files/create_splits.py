@@ -2,7 +2,7 @@ import os
 import shutil
 import random
 
-def split_data(dataset_fractions, parent_dir):
+def split_data(dataset_fractions, parent_dir, data_dir, train_fraction):
     """
     Split the datasets into training, validation, and testing sets
     by copying the files from the original datasets to different directories.
@@ -12,13 +12,13 @@ def split_data(dataset_fractions, parent_dir):
     """
     # Loop over each dataset
     for ds_info in dataset_fractions:
-        dataset_name, _, _ = ds_info
+        dataset_name, pos_fraction, neg_fraction = ds_info
 
         # Loop over each category: positive and negative
         for category in ['positive', 'negative']:
             # Define the directories for images and masks in the original dataset
-            image_dir = os.path.join(parent_dir, 'data', dataset_name, f'images_{category}')
-            mask_dir = os.path.join(parent_dir, 'data', dataset_name, f'masks_{category}')
+            image_dir = os.path.join(parent_dir, data_dir, dataset_name, f'images_{category}')
+            mask_dir = os.path.join(parent_dir, data_dir, dataset_name, f'masks_{category}')
 
             # Get the list of files in the image directory
             files = os.listdir(image_dir)
@@ -26,8 +26,14 @@ def split_data(dataset_fractions, parent_dir):
             # Shuffle the files to ensure a random split
             random.shuffle(files)
 
+            # randomly sample
+            if category == 'positive':
+                files = files[:int(len(files) * pos_fraction)]
+            elif category == 'negative':
+                files = files[:int(len(files) * neg_fraction)]
+
             # Calculate the number of files for training and validation
-            num_train = int(len(files) * 0.8)
+            num_train = int(len(files) * train_fraction)
             num_val = int(len(files) * 0)
 
             # Split the files into train, validation, and test sets
@@ -47,6 +53,22 @@ def split_data(dataset_fractions, parent_dir):
                 for file in files_split:
                     shutil.copy(os.path.join(image_dir, file), os.path.join(split_image_dir, file))
                     shutil.copy(os.path.join(mask_dir, file), os.path.join(split_mask_dir, file))
+
+                # delete folder, if it contains no files
+                if len(os.listdir(split_image_dir)) == 0:
+                    os.rmdir(split_image_dir)
+                if len(os.listdir(split_mask_dir)) == 0:
+                    os.rmdir(split_mask_dir)
+
+    # loop over each dataset and delete folder, if it contains no files
+    for ds_info in dataset_fractions:
+        dataset_name, _, _ = ds_info
+        for split in ['train', 'val', 'test']:
+            dataset_dir = os.path.join(parent_dir, f'data_{split}', dataset_name)
+            # if image dir does not exist, skip
+            if os.path.exists(dataset_dir) == True:
+                if len(os.listdir(dataset_dir)) == 0:
+                    os.rmdir(dataset_dir)
 
 def test_no_overlap_and_count(dataset_fractions, parent_dir):
     """
@@ -116,7 +138,9 @@ if __name__ == '__main__':
     # Get the current working directory
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
+    train_fraction = 1
 
+    data_dir = "data"
     dataset_fractions = [
         ['France_google', 1, 0],
         ['France_ign', 1, 0],
@@ -125,8 +149,14 @@ if __name__ == '__main__':
         ['Denmark', 1, 0]
     ]
 
+    # data_dir = "data_NL"
+    # dataset_fractions = [
+    #     ['Heerlen_2018_HR_output', 1, 0],
+    #     ['ZL_2018_HR_output', 1, 0],
+    # ]
+
     # Create the splits
-    split_data(dataset_fractions, parent_dir)
+    split_data(dataset_fractions, parent_dir, data_dir, train_fraction)
 
     # Unit-Test the splits
-    test_no_overlap_and_count(dataset_fractions, parent_dir)
+    # test_no_overlap_and_count(dataset_fractions, parent_dir)

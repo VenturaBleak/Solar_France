@@ -83,7 +83,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                     if i == 64:
                         break
                     plt.subplot(8, 8, i + 1)  # plot in an 8x8 grid
-                    plt.imshow(filter, cmap='gray')  # plot the feature map in grayscale
+                    plt.imshow(filter.cpu(), cmap='gray')  # plot the feature map in grayscale
                     plt.axis('off')  # turn off axis labels
                     plt.title(f'Feature map {i + 1}', fontsize=20)
                 fig.suptitle(f'Feature maps - Block {int(layer_number / 2) + 1}', fontsize=100)
@@ -94,6 +94,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                 # Save the figure as an image file
                 image_file_path = os.path.join(folder, f"{file_name}_fm_mult_layers_{layer_number}.png")
                 fig.savefig(image_file_path, bbox_inches='tight')
+                plt.close(fig)
 
         if PLT_KERNEL:
             # Visualize the weights
@@ -105,7 +106,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                         if i == 64:
                             break
                         plt.subplot(8, 8, i + 1)
-                        plt.imshow(weight[0], cmap='gray')  # visualize the first channel of the weight
+                        plt.imshow(weight[0].cpu(), cmap='gray')  # visualize the first channel of the weight
                         plt.axis('off')
                         plt.title(f'Filter {i + 1}', fontsize=20)
                     fig.suptitle(f'Filters - Block {int(layer_number / 2) + 1}', fontsize=100)
@@ -114,8 +115,9 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                         plt.show()
 
                     # Save the figure as an image file
-                    image_file_path = os.path.join(folder, f"{file_name}_fm_kernel_{layer_number/2+1}.png")
+                    image_file_path = os.path.join(folder, f"{file_name}_fm_kernel_{int(layer_number/2+1)}.png")
                     fig.savefig(image_file_path, bbox_inches='tight')
+                    plt.close(fig)
 
         if PLT_AGGREGATED_LAYERS:
             # Initialize empty lists for storing outputs from each convolutional layer and the names of the layers
@@ -141,7 +143,7 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
                 # Remove the batch dimension from the feature map using the squeeze() function.
                 # The output feature map is a 4D tensor with shape (batch_size, channels, height, width).
                 # After squeezing, it becomes a 3D tensor with shape (channels, height, width).
-                feature_map = feature_map.squeeze(0)
+                feature_map = feature_map.squeeze(0).cpu()
 
                 # Convert the 3D tensor to 2D by summing the same element of every channel.
                 # This results in a grayscale image where each pixel's value is the sum of that pixel's values across all channels.
@@ -181,5 +183,6 @@ def visualize_feature_maps(model, img_path, train_mean, train_std, file_name, fo
             # Save the figure as an image file
             image_file_path = os.path.join(folder, f"{file_name}_fm_aggregated.png")
             fig.savefig(image_file_path, bbox_inches='tight')
+            plt.close(fig)
 
     model.train()

@@ -23,11 +23,11 @@ def find_largest_white_patch(mask):
 
     return tuple(center), bounding_box  # Return the center and bounding box
 
-def find_random_white_patch(mask, min_pixel_count=100):
+def find_random_white_patch(mask, min_pixel_count=200):
     """
     Function to find a random white patch from the list sorted by their size in a binary mask,
     excluding patches with less than min_pixel_count pixels.
-    :param mask: Binary mask, where white pixels (solar PVs) are 1 and black pixels are 0
+    :param mask: Binary mask, where white pixels (solar PVs or buildings) are 1 and black pixels are 0
     :param min_pixel_count: Minimum number of pixels in a patch to be considered for random selection (default: 100)
     :return: Center (x,y coordinates within mask) and bounding box of the randomly selected white patch
     """
@@ -99,11 +99,12 @@ def find_angle(mask):
     try:
         props = regionprops_table(binary_mask, properties=['orientation'])
         angle = props['orientation'][0]
-    except IndexError:
+    # except index error when there are no white pixels in the mask and value error when there is only one white pixel in the mask
+    except:
         angle = 0
     return angle
 
-def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, location, bounding_box):
+def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, target_location, target_bounding_box):
     """This function takes a target image and its corresponding mask, a cropped image of a solar panel with its
     corresponding mask, the location where the solar panel should be pasted, and the bounding box of the target area.
     It then aligns the cropped image with the target image by calculating the angle difference between them and
@@ -120,7 +121,7 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
     """
 
     # Get the bounding box coordinates
-    x_min, y_min, x_max, y_max = bounding_box
+    x_min, y_min, x_max, y_max = target_bounding_box
 
     # Calculate the center of the bounding box
     center_x = (x_max + x_min) // 2
@@ -151,7 +152,7 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
 
     # Rotate the cropped image and mask to align with the target mask
     cropped_image = cropped_image.rotate(rotation, resample=Image.BICUBIC, expand=True)
-    cropped_mask = cropped_mask.rotate(rotation, resample=Image.NEAREST, expand=True)
+    cropped_mask = cropped_mask.rotate(rotation, resample=Image.BICUBIC, expand=True)
 
     # Apply random brightness to the cropped image
     if random.random() < 0.3:
@@ -174,7 +175,7 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
         resized_image_size = tuple([int(dim * zoom_factor) for dim in cropped_image.size])
         resized_mask_size = tuple([int(dim * zoom_factor) for dim in cropped_mask.size])
         cropped_image = cropped_image.resize(resized_image_size, resample=Image.BICUBIC)
-        cropped_mask = cropped_mask.resize(resized_mask_size, resample=Image.NEAREST)
+        cropped_mask = cropped_mask.resize(resized_mask_size, resample=Image.BICUBIC)
 
     # Apply Gaussian blur or sharpening to the cropped image
     if random.random() < 0.3:
@@ -183,6 +184,11 @@ def paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, 
         else:
             #
             cropped_image = ImageEnhance.Sharpness(cropped_image).enhance(random.uniform(0, 0.3))
+
+    # make sure that cropped mask is only 0 or 255
+    cropped_mask = np.array(cropped_mask)
+    cropped_mask = np.where(cropped_mask > 50, 255, 0)
+    cropped_mask = Image.fromarray(cropped_mask.astype('uint8'), 'L')
 
     # Clear the target mask, i.e. fill it with 0s, that is, remove the building segmentations
     target_mask_np.fill(0)
@@ -217,14 +223,13 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     # random sample from white patches with at minimum min_pixel_count pixels of white pixels on the target mask
     # experimented with the min_pixel_count parameter and 1500 seems to work well, given the 400x400 size of the target images
     MIN_PIXEL_COUNT = 1500
-    largest_patch_location, bounding_box = find_random_white_patch(target_mask_np, min_pixel_count=MIN_PIXEL_COUNT)
-
+    target_location, target_bounding_box = find_random_white_patch(target_mask_np, min_pixel_count=MIN_PIXEL_COUNT)
 
     # alternative: always use the largest patch
-    # largest_patch_location, bounding_box = find_largest_white_patch(target_mask_np)
+    # target_location, target_bounding_box = find_largest_white_patch(target_mask_np)
 
     # Replace white values outside the bounding box with black values
-    x_min, y_min, x_max, y_max = bounding_box
+    x_min, y_min, x_max, y_max = target_bounding_box
     target_mask_np[0:y_min, :] = 0
     target_mask_np[y_max:, :] = 0
     target_mask_np[:, 0:x_min] = 0
@@ -236,17 +241,17 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     cropped_image, cropped_mask = crop_solar_panel(source_image, source_mask_np)
 
     # Paste the solar panel onto the target image and its mask
-    target_mask = paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, largest_patch_location, bounding_box)
+    target_mask = paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, target_location, target_bounding_box)
 
     # Return the modified target image and its mask
     return target_image, target_mask
 
-
 class ImageProcessor:
-    def __init__(self, solar_images, solar_masks, solar_image_dirs, solar_mask_dirs):
+    def __init__(self, solar_images, solar_masks, solar_image_dirs, solar_mask_dirs, building_image_dir, building_mask_dir):
         self.parent_dir = os.path.dirname(os.getcwd())
-        self.building_image_dir = os.path.join(self.parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
-        self.building_mask_dir = os.path.join(self.parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
+        self.building_image_dir = building_image_dir
+        self.building_mask_dir = building_mask_dir
+
         # building image files
         self.building_image_files = [os.path.join(self.building_image_dir, image) for image in sorted(os.listdir(self.building_image_dir)) if
                                      image.endswith('.png')]
@@ -262,7 +267,7 @@ class ImageProcessor:
                                  os.path.exists(os.path.join(mask_dir, mask))]
 
         # ToDo: clean code to account for double names in folders, that is modify
-        print(f"Number of solar images: {len(self.solar_image_files)}")
+        print(f"Number of unique solar images available: {len(self.solar_image_files)}")
 
     def filter_solar_files(self, expressions):
         if not isinstance(expressions, list):
@@ -273,18 +278,15 @@ class ImageProcessor:
         self.solar_mask_files = [mask_file for mask_file in self.solar_mask_files if
                                  any(exp in mask_file for exp in expressions)]
 
-    def process_sample_images(self):
+    def process_sample_images(self, solar_images, solar_masks, building_images, building_masks):
         # Randomly select one training image and its corresponding mask file from the lists
-        index = random.randint(0, len(self.solar_image_files) - 1)
-        solar_image_path = self.solar_image_files[index]
-        solar_mask_path = self.solar_mask_files[index]
-        print(solar_image_path, solar_mask_path)
-        exit()
+        solar_index = random.randint(0, len(solar_images) - 1)
+        solar_image_path = solar_images[solar_index]
+        solar_mask_path = solar_masks[solar_index]
 
-        # Get the building image and mask filenames
-        index = random.randint(0, len(self.building_image_files) - 1)
-        building_image_path = self.building_image_files[index]
-        building_mask_path = self.building_mask_files[index]
+        building_index = random.randint(0, len(building_images) - 1)
+        building_image_path = building_images[building_index]
+        building_mask_path = building_masks[building_index]
         # print(building_image_path, building_mask_path)
 
         source_image = Image.open(solar_image_path).convert("RGB")
@@ -292,24 +294,108 @@ class ImageProcessor:
         target_image = Image.open(building_image_path).convert("RGB")
         target_mask = Image.open(building_mask_path).convert("L")
 
-        try:
-            modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image,
-                                                                        target_mask)
-            # modified_target_image.show(), modified_target_mask.show()
-        except ValueError as e:
-            print(e)
+
+        modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image,
+                                                                    target_mask)
+        # modified_target_image.show(), modified_target_mask.show()
+
+
+        # Remove the used items from the lists
+        solar_images.pop(solar_index)
+        solar_masks.pop(solar_index)
+        building_images.pop(building_index)
+        building_masks.pop(building_index)
 
         return modified_target_image, modified_target_mask
 
-if __name__ == "__main__":
-    parent_dir = os.path.dirname(os.getcwd())
-    positive_image_dir = os.path.join(parent_dir, 'data', 'France_google', 'images_positive')
-    positive_mask_dir = os.path.join(parent_dir, 'data', 'France_google', 'masks_positive')
+    def process_all_images(self, factor, output_dirs):
+        start_time = time.time()
+        output_image_dir, output_mask_dir = output_dirs
 
+        # make output directories, if they don't exist
+        os.makedirs(output_image_dir, exist_ok=True)
+        os.makedirs(output_mask_dir, exist_ok=True)
+
+        # Copy the lists
+        solar_images = self.solar_image_files.copy()
+        solar_masks = self.solar_mask_files.copy()
+        building_images = self.building_image_files.copy()
+        building_masks = self.building_mask_files.copy()
+
+        # Calculate how many times to loop over the solar images list
+        number_generated = math.ceil(len(solar_images) * factor)
+        print(f"Number of solar images to be generated: {number_generated}")
+        loops = math.ceil(number_generated)
+
+        # Counter for saving images/masks
+        counter = 1
+
+        for _ in range(loops):
+            # Check if the solar_images list is empty, if so, break the loop
+            if not solar_images:
+                break
+
+            # Check if the building_images list is empty, if so, reset it
+            if not building_images:
+                building_images = self.building_image_files.copy()
+                building_masks = self.building_mask_files.copy()
+
+            image, mask = self.process_sample_images(solar_images, solar_masks, building_images, building_masks)
+
+            # Define minimum and maximum number of white pixels
+            min_white_pixels =  200
+            max_white_pixels =  10000
+
+            # Convert mask to grayscale and threshold so that white pixels have value 255
+            mask = mask.convert("L")
+            mask_np = np.array(mask)
+
+            # Count the number of white pixels in the mask
+            num_white_pixels = np.sum(mask_np == 255)
+
+            # If the mask meets the condition, save the image and mask
+            if min_white_pixels <= num_white_pixels <= max_white_pixels:
+                # Save the modified target image and its mask with sequential numbers
+                image.save(os.path.join(output_image_dir, f"{counter}.png"))
+                mask.save(os.path.join(output_mask_dir, f"{counter}.png"))
+                counter += 1
+
+        print(f"Success: Number of valid solar images generated: {counter - 1}")
+
+        end = time.time()
+        # time taken to run the script, in hrs, mins, secs
+        time_taken = time.strftime("%H:%M:%S", time.gmtime(end - start_time))
+
+if __name__ == "__main__":
+    # set random seed
+    random.seed(42)
+
+    # Fetch the parent directory of the current directory
+    parent_dir = os.path.dirname(os.getcwd())
+
+    # Specify the Fraction of solar images to use
+    FRACTION = 1
+
+    # Specify the directories of the solar images and masks
+    positive_image_dir = os.path.join(parent_dir, 'data', 'Munich', 'images_positive')
+    positive_mask_dir = os.path.join(parent_dir, 'data', 'Munich', 'masks_positive')
+
+    # Specify the directories of the building images and masks
+    building_image_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
+    building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
+
+    # Specify the directories to save the output images and masks
+    output_image_dir = os.path.join(parent_dir, 'data_snippet', 'Munich', 'images_positive')
+    output_mask_dir = os.path.join(parent_dir, 'data_snippet', 'Munich', 'masks_positive')
+
+    # Get the list of solar images and masks
     train_images_positive = sorted([f for f in os.listdir(positive_image_dir) if f.endswith('.png')])
     train_masks_positive = sorted([f for f in os.listdir(positive_mask_dir) if f.endswith('.png')])
 
+
+    # Create an instance of the ImageProcessor class
     image_processor = ImageProcessor(train_images_positive, train_masks_positive, [positive_image_dir],
-                                     [positive_mask_dir])
-    image, mask = image_processor.process_sample_images()
-    image.show(), mask.show()
+                                     [positive_mask_dir], building_image_dir, building_mask_dir)
+
+    # Execute the process_all_images method
+    image_processor.process_all_images(FRACTION, (output_image_dir, output_mask_dir))
