@@ -81,11 +81,11 @@ def main(model_arch):
     train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0.0, 0],
-        ['France_ign', 0., 0],
-        ['Munich', 0., 0],
-        ['China', 0., 0],
-        ['Denmark', 0., 0],
+        ['France_google', 0, 0],
+        ['France_ign', 0, 0],
+        ['Munich', 0, 0],
+        ['China', 0, 0],
+        ['Denmark', 0, 0],
         ['Heerlen_2018_HR_output', 1, 0],
         ['ZL_2018_HR_output', 1, 0],
     ]
@@ -200,8 +200,8 @@ def main(model_arch):
         train_mean, train_std = get_mean_std(train_loader)
     else:
         # specify train_mean, train_std -> has to be in this format: tensor([0.2929, 0.2955, 0.2725]), tensor([0.2268, 0.2192, 0.2098])
-        train_mean = torch.tensor([0.3817, 0.3870, 0.3454])
-        train_std = torch.tensor([0.2156, 0.1996, 0.1950])
+        train_mean = torch.tensor([0.3637, 0.3688, 0.3301])
+        train_std = torch.tensor([0.2242, 0.2102, 0.2033])
 
     # specify UnNormalize() function for visualization of sample images
     unorm = UnNormalize(mean=tuple(train_mean.numpy()), std=(tuple(train_std.numpy())))
@@ -444,7 +444,7 @@ def main(model_arch):
         log_df.to_csv(log_csv_path, index=False)
 
         # if epoch // 5 == 0: then save pred as imgs
-        if epoch % 5 == 0 or epoch == NUM_EPOCHS:
+        if epoch % 10 == 0 or epoch == NUM_EPOCHS:
             # save some examples to a folder
             imgs_file_name = model_name + "_Epoch" + str(epoch)
             save_predictions_as_imgs(
