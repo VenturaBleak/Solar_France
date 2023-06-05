@@ -49,6 +49,8 @@ for json_file in json_files:
     with open(json_file) as f:
         data = json.load(f)
 
+    print(f"json_file: {json_file}")
+
     # Iterate over each image in the JSON file
     for image in data['images']:
         image_id = image['id']
@@ -142,4 +144,4 @@ for json_file in json_files:
             shutil.copy2(image_file_path, os.path.join(image_output_folder, f'{file_name}'))
 
         # number of masks created
-    print(f"Number of masks created: {len(data['images'])}; file_name: {file_name}")
+    print(f"Number of masks created: {len(data['images'])}")
