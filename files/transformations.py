@@ -1,5 +1,6 @@
 import os
 import random
+import torch
 from PIL import Image, ImageFilter, ImageEnhance
 from torchvision import transforms
 from utils import check_non_binary_pixels
@@ -54,7 +55,7 @@ class TransformationTypes:
             img = transforms.Resize((self.image_height, self.image_width),
                                     interpolation=transforms.InterpolationMode.BICUBIC)(img)
             mask = transforms.Resize((self.image_height, self.image_width),
-                                     interpolation=transforms.InterpolationMode.NEAREST)(mask)
+                                     interpolation=transforms.InterpolationMode.BICUBIC)(mask)
 
         return img, mask
 
@@ -101,7 +102,7 @@ class TransformationTypes:
 
         # Resize the image and mask
         img = transforms.Resize((self.image_height, self.image_width), interpolation = transforms.InterpolationMode.BICUBIC)(img)
-        mask = transforms.Resize((self.image_height, self.image_width), interpolation = transforms.InterpolationMode.NEAREST)(mask)
+        mask = transforms.Resize((self.image_height, self.image_width), interpolation = transforms.InterpolationMode.BICUBIC)(mask)
         # uncomment to assert that the mask is binary
         # check_non_binary_pixels(mask, "resize")
 
@@ -120,7 +121,7 @@ class TransformationTypes:
             img = transforms.Resize((self.image_height + PADDING, self.image_width + PADDING),
                                     interpolation=transforms.InterpolationMode.BICUBIC)(img)
             mask = transforms.Resize((self.image_height + PADDING, self.image_width + PADDING),
-                                     interpolation=transforms.InterpolationMode.NEAREST)(mask)
+                                     interpolation=transforms.InterpolationMode.BICUBIC)(mask)
 
             # Apply the same random crop to both the image and the mask
             i, j, h, w = transforms.RandomCrop.get_params(img, output_size=(self.image_height, self.image_width))
@@ -156,10 +157,10 @@ class TransformationTypes:
 
         # Apply the affine transformation to the mask with the same parameters
         mask = transforms.functional.affine(mask, angle, (translate_x, translate_y), 1, 0,
-                                            interpolation=transforms.InterpolationMode.NEAREST)
+                                            interpolation=transforms.InterpolationMode.BICUBIC)
 
         # uncomment to assert that the mask is binary
-        #check_non_binary_pixels(mask, "affine")
+        # check_non_binary_pixels(mask, "affine")
 
         ##############################
         # Augment image only
@@ -187,6 +188,14 @@ class TransformationTypes:
         # transform to tensor
         img = transforms.ToTensor()(img)
         mask = transforms.ToTensor()(mask)
+
+        # Round mask tensor values to 0 or 1
+        mask = torch.where(mask > 0.2, torch.tensor(1.0), torch.tensor(0.0))
+
+        # uncomment to assert that the mask is binary
+        # unique_values = torch.unique(mask)
+        # for value in unique_values:
+        #     assert value == 0 or value == 1, f"After transformation: {transformation}; Mask contains non-binary value: {value}"
 
         # Normalize the image
         img = transforms.Normalize(mean=self.train_mean, std=self.train_std)(img)

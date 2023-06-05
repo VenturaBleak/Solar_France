@@ -47,7 +47,7 @@ def main(model_arch):
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 25
+    NUM_EPOCHS = 100
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -81,11 +81,13 @@ def main(model_arch):
     train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0.002, 0],
+        ['France_google', 0.0, 0],
         ['France_ign', 0., 0],
         ['Munich', 0., 0],
         ['China', 0., 0],
-        ['Denmark', 0., 0]
+        ['Denmark', 0., 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
     ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
@@ -101,11 +103,13 @@ def main(model_arch):
 
     val_ds = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0.005, 0],
+        ['France_google', 0, 0],
         ['France_ign', 0., 0],
         ['Munich', 0., 0],
         ['China', 0., 0],
-        ['Denmark', 0., 0]
+        ['Denmark', 0., 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
     ]
 
     # get all images in a given folder, that is: val_data
@@ -122,11 +126,13 @@ def main(model_arch):
 
     vis_ds = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0.005, 0],
+        ['France_google', 0, 0],
         ['France_ign', 0., 0],
         ['Munich', 0., 0],
         ['China', 0., 0],
-        ['Denmark', 0., 0]
+        ['Denmark', 0., 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
     ]
 
     # get all images in a given folder, that is: val_data
@@ -386,10 +392,19 @@ def main(model_arch):
     # Initialize the best validation metric
     best_val_metric = float('-inf')  # Use float('inf') for loss, or float('-inf') for F1-score and other metrics
 
+    # save model and sample predictions
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+
+    model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+
     # train the model
     for epoch in range(NUM_EPOCHS):
         # Train
-        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch)
+        train_loss = train_fn(train_loader, model, optimizer, loss_fn, scaler, scheduler, device=DEVICE, epoch=epoch,
+                              model_path=model_path, model_name=model_name)
 
         # Validate
         metric_dict = binary_metrics.calculate_binary_metrics(val_loader, model, loss_fn, device=DEVICE)
@@ -399,7 +414,8 @@ def main(model_arch):
         print(
             f"Val.Metrics: Loss: {metric_dict['val_loss']:.4f} | "
             f"F1-Score:{metric_dict['f1_score']:.3f} | Precision:{metric_dict['precision']:.3f} | "
-            f"Recall:{metric_dict['recall']:.3f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} | LR:{scheduler.get_last_lr()[0]:.1e}"
+            f"Recall:{metric_dict['recall']:.3f} | Balanced-Acc:{metric_dict['balanced_acc']:.3f} |"
+            f" LR:{scheduler.get_last_lr()[0]:.1e}"
         )
 
         # Log validation metrics in a df, in the same order as the metrics_names
@@ -416,7 +432,7 @@ def main(model_arch):
                 "optimizer": optimizer.state_dict(),
             }
 
-            model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
+            save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_name, parent_dir=parent_dir)
 
             # save some examples to a folder
             save_predictions_as_imgs(
@@ -444,10 +460,6 @@ def main(model_arch):
                 # Grad-CAM
                 visualize_gradcam_UNET(model, vis_loader, file_name=imgs_file_name, folder=model_path, device=DEVICE)
 
-                # ToDo: move this once running
-                # from tranformer_feature_map import compute_gradient
-                # compute_gradient(model, val_loader, device=DEVICE)
-
                 plt.close('all')
 
     #time end
@@ -455,64 +467,6 @@ def main(model_arch):
 
     # print total training time in hours, minutes, seconds
     print("All epochs completed. Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
-
-    # create GIF from the pred overlay images
-    for index in [2,5,8,11,14]:
-        # regex pattern to include include: model_name + "_Epoch" + 1-3 digit number (1 to 999) + "_pred.png"
-        image_name_pattern = "{}_Epoch(\d{{1,3}})_pred.png".format(model_name)
-        output_gif_name = model_name + "_pred" + "_GIF" + str(index) + ".gif"
-        font_path = os.path.join(cwd, "Arial_Bold.ttf")
-        create_gif_from_images(image_folder=model_path,
-                               image_name_pattern=image_name_pattern,
-                               output_gif_name=output_gif_name,
-                               image_index=index,
-                               img_height=416,
-                               img_width=416,
-                               font_path=font_path,
-                               num_epochs = NUM_EPOCHS,
-                               crop_image=True)
-
-    # create GIF from the feature map images
-    image_name_pattern = "{}_Epoch(\d{{1,3}})_aggregated".format(model_name)
-    output_gif_name = model_name + "_fm_aggregated" + "_GIF.gif"
-    font_path = os.path.join(cwd, "Arial_Bold.ttf")
-    create_gif_from_images(image_folder=model_path,
-                           image_name_pattern=image_name_pattern,
-                           output_gif_name=output_gif_name,
-                           image_index=0,
-                           img_height=416,
-                           img_width=416,
-                           font_path=font_path,
-                           num_epochs=NUM_EPOCHS,
-                           crop_image=False)
-
-    # create GIF from the grad_cam images
-    image_name_pattern = "{}_Epoch(\d{{1,3}})_aggregated".format(model_name)
-    output_gif_name = model_name + "_fm_aggregated" + "_GIF.gif"
-    font_path = os.path.join(cwd, "Arial_Bold.ttf")
-    create_gif_from_images(image_folder=model_path,
-                           image_name_pattern=image_name_pattern,
-                           output_gif_name=output_gif_name,
-                           image_index=0,
-                           img_height=416,
-                           img_width=416,
-                           font_path=font_path,
-                           num_epochs=NUM_EPOCHS,
-                           crop_image=False)
-
-    # create GIF from the grad_cam images
-    image_name_pattern = "{}_Epoch(\d{{1,3}})_GradCAM++".format(model_name)
-    output_gif_name = model_name + "GradCAM++" + "_GIF.gif"
-    font_path = os.path.join(cwd, "Arial_Bold.ttf")
-    create_gif_from_images(image_folder=model_path,
-                           image_name_pattern=image_name_pattern,
-                           output_gif_name=output_gif_name,
-                           image_index=0,
-                           img_height=416,
-                           img_width=416,
-                           font_path=font_path,
-                           num_epochs=NUM_EPOCHS,
-                           crop_image=False)
 
 if __name__ == "__main__":
     # loop over main for the following parameters

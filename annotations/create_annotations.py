@@ -16,6 +16,7 @@ parent_dir = os.path.dirname(cwd)
 
 # Heerlen or ZL
 REGION = "Heerlen_2018_HR_output"
+# REGION = "ZL_2018_HR_output"
 
 # Define image and mask folders
 image_folder = os.path.join(parent_dir, "data", REGION, "images_positive")  # Replace "directory_to_specify" with the actual directory
@@ -25,11 +26,18 @@ json_folder = os.path.join(parent_dir, "annotations")  # Replace "directory_to_s
 mask_output_folder = os.path.join(parent_dir, "data_NL", REGION, "masks_positive")  # Replace "directory_to_specify" with the actual directory
 image_output_folder = os.path.join(parent_dir, "data_NL", REGION, "images_positive")  # Replace "directory_to_specify" with the actual directory
 
+mask_output_folder_negative = os.path.join(parent_dir, "data_NL", REGION, "masks_negative")  # Replace "directory_to_specify" with the actual directory
+image_output_folder_negative = os.path.join(parent_dir, "data_NL", REGION, "images_negative")  # Replace "directory_to_specify" with the actual directory
+
 # create the output folders if they don't exist already
 if not os.path.exists(mask_output_folder):
     os.makedirs(mask_output_folder)
 if not os.path.exists(image_output_folder):
     os.makedirs(image_output_folder)
+if not os.path.exists(mask_output_folder_negative):
+    os.makedirs(mask_output_folder_negative)
+if not os.path.exists(image_output_folder_negative):
+    os.makedirs(image_output_folder_negative)
 
 # fetch all the json files in the directory "json_folder"
 json_files = [pos_json for pos_json in os.listdir(json_folder) if pos_json.endswith('.json')]
