@@ -142,4 +142,4 @@ for json_file in json_files:
             shutil.copy2(image_file_path, os.path.join(image_output_folder, f'{file_name}'))
 
         # number of masks created
-    print(f"Number of masks created: {len(data['images'])}")
+    print(f"Number of masks created: {len(data['images'])}; file_name: {file_name}")
