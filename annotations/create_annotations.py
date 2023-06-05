@@ -72,7 +72,7 @@ for json_file in json_files:
                     # Reshape the segmentation to a list of tuples, each representing a vertex of the polygon
                     polygon = list(map(tuple, np.reshape(segmentation, (-1, 2))))
                     # Draw the polygon on the mask
-                    draw.polygon(polygon, outline=255, fill=255, width=0)  # fill with white (255)
+                    draw.polygon(polygon, outline=255, fill=255)  # fill with white (255)
 
             # Downsample the mask to the original size, this will perform a simple anti-aliasing
             mask = mask.resize((200, 200), Image.Resampling.LANCZOS)
