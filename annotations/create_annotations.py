@@ -15,8 +15,8 @@ cwd = os.getcwd()
 parent_dir = os.path.dirname(cwd)
 
 # Heerlen or ZL
-REGION = "Heerlen_2018_HR_output"
-# REGION = "ZL_2018_HR_output"
+# REGION = "Heerlen_2018_HR_output"
+REGION = "ZL_2018_HR_output"
 
 # Define image and mask folders
 image_folder = os.path.join(parent_dir, "data", REGION, "images_positive")  # Replace "directory_to_specify" with the actual directory
