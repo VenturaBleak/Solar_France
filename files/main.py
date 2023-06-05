@@ -374,8 +374,8 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Upsample_Tuning"
-    model_name = model_arch + "_" + "Bicubic"
+    model_dir = "Experiment1"
+    model_name = model_arch + "_" + "NL"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
