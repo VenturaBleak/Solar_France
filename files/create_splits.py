@@ -149,11 +149,11 @@ if __name__ == '__main__':
         ['Denmark', 1, 0]
     ]
 
-    # data_dir = "data_NL"
-    # dataset_fractions = [
-    #     ['Heerlen_2018_HR_output', 1, 0],
-    #     ['ZL_2018_HR_output', 1, 0],
-    # ]
+    data_dir = "data_NL"
+    dataset_fractions = [
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
+    ]
 
     # Create the splits
     split_data(dataset_fractions, parent_dir, data_dir, train_fraction)
