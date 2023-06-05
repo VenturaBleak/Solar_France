@@ -75,7 +75,7 @@ for json_file in json_files:
                     draw.polygon(polygon, outline=255, fill=255)  # fill with white (255)
 
             # Downsample the mask to the original size, this will perform a simple anti-aliasing
-            mask = mask.resize((200, 200), Image.Resampling.LANCZOS)
+            mask = mask.resize((200, 200), Image.BICUBIC)
 
             # GPT: add padding to the mask to get to the original size width x height
 
