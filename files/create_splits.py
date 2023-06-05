@@ -138,7 +138,7 @@ if __name__ == '__main__':
     # Get the current working directory
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
-    train_fraction = 0.8
+    train_fraction = 1
 
     data_dir = "data"
     dataset_fractions = [
@@ -149,11 +149,11 @@ if __name__ == '__main__':
         ['Denmark', 1, 0]
     ]
 
-    data_dir = "data_NL"
-    dataset_fractions = [
-        ['Heerlen_2018_HR_output', 1, 0],
-        ['ZL_2018_HR_output', 1, 0],
-    ]
+    # data_dir = "data_NL"
+    # dataset_fractions = [
+    #     ['Heerlen_2018_HR_output', 1, 0],
+    #     ['ZL_2018_HR_output', 1, 0],
+    # ]
 
     # Create the splits
     split_data(dataset_fractions, parent_dir, data_dir, train_fraction)
