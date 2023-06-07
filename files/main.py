@@ -374,7 +374,7 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment33"
+    model_dir = "Experiment3"
     model_name = model_arch + "_" + "ALL"
 
     # create a GradScaler once at the beginning of training.
