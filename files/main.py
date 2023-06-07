@@ -86,8 +86,8 @@ def main(model_arch):
         ['Munich', 1, 0],
         ['China', 1, 0],
         ['Denmark', 1, 0],
-        ['Heerlen_2018_HR_output', 0, 0],
-        ['ZL_2018_HR_output', 0, 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
     ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
@@ -374,8 +374,8 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment1"
-    model_name = model_arch + "_" + "ALLbutNL"
+    model_dir = "Experiment33"
+    model_name = model_arch + "_" + "ALL"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()

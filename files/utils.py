@@ -200,6 +200,11 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
         # Cut out the selected image-mask-prediction combination, if crop_image is True
         selected_img = img.crop((x_start, 0, x_end, img_height)) if crop_image else img
 
+        if crop_image == True:
+            # center crop, start y at 1/4 of the image height, end y at 3/4 of the image height
+            selected_img = selected_img.crop((img_width//4, img_height // 4, 3*img_width//4, 3 * img_height // 4))
+
+
         # Create a draw object and specify the font size and color
         draw = ImageDraw.Draw(selected_img)
         font_size = int(selected_img.height ** 0.5)

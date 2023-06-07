@@ -14,9 +14,9 @@ def create_gif(model_name, image_name_pattern, output_gif_name, model_path, num_
                            crop_image=crop_image)
 
 if __name__ == "__main__":
-    NUM_EPOCHS = 30
-    model_folder = "Upsample_Tuning"
-    model_name = "UNet_Bicubic"
+    NUM_EPOCHS = 100
+    model_folder = "Experiment1"
+    model_name = "UNet_ALLbutNL"
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 
@@ -31,6 +31,6 @@ if __name__ == "__main__":
     output_gif_name = model_name + "_fm_aggregated" + "_GIF.gif"
     create_gif(model_name, image_name_pattern, output_gif_name, model_path, NUM_EPOCHS, cwd, crop_image=False)
 
-    image_name_pattern = "{}_Epoch(\d{{1,3}})_EigenGradCAM".format(model_name)
+    image_name_pattern = "{}_Epoch(\d{{1,3}})_GradCAM".format(model_name)
     output_gif_name = model_name + "GradCAM++" + "_GIF.gif"
     create_gif(model_name, image_name_pattern, output_gif_name, model_path, NUM_EPOCHS, cwd, crop_image=False)
