@@ -470,6 +470,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["UNet"]
+    model_archs = ["B0"]
     for model_arch in model_archs:
         main(model_arch)
