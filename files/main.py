@@ -81,11 +81,11 @@ def main(model_arch):
     train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 1, 0],
-        ['France_ign', 1, 0],
-        ['Munich', 1, 0],
-        ['China', 1, 0],
-        ['Denmark', 1, 0],
+        ['France_google', 0, 0],
+        ['France_ign', 0, 0],
+        ['Munich', 0, 0],
+        ['China', 0, 0],
+        ['Denmark', 0, 0],
         ['Heerlen_2018_HR_output', 1, 0],
         ['ZL_2018_HR_output', 1, 0],
     ]
@@ -382,7 +382,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment1"
-    model_name = model_arch + "_" + "2nd"
+    model_name = model_arch + "_" + "pretrained"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
