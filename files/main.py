@@ -346,6 +346,10 @@ def main(model_arch):
     ############################
     model_dir = "_Initialized"
 
+    # ToDo: delete this
+    model_dir = "Experiment1"
+    model_arch = "UNet_ALLbutNL"
+
     try:
         # load the model
         load_model(model_dir, model_arch, model, parent_dir)
@@ -358,6 +362,9 @@ def main(model_arch):
             "optimizer": optimizer.state_dict(),
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
+
+    # ToDo: delete this
+    model_arch = "UNet"
 
     ############################
     # Visualize sample images
@@ -374,8 +381,8 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment3"
-    model_name = model_arch + "_" + "ALL"
+    model_dir = "Experiment1"
+    model_name = model_arch + "_" + "2nd"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -470,6 +477,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B0"]
+    model_archs = ["UNet"]
     for model_arch in model_archs:
         main(model_arch)
