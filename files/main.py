@@ -382,7 +382,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment1"
-    model_name = model_arch + "_" + "pretrained"
+    model_name = model_arch + "_" + "pretrained100"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
