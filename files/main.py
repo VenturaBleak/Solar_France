@@ -44,6 +44,8 @@ def main(model_arch):
     ############################
     RANDOM_SEED = 42
     LEARNING_RATE = 1e-4 # (0.0001)
+    # TODo: delete this
+    LEARNING_RATE = 5e-5 # (0.001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
