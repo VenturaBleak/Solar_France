@@ -88,7 +88,7 @@ def create_gradient_plots(model_name, gradient_name_pattern, output_gif_name, mo
 if __name__ == "__main__":
     NUM_EPOCHS = 30
     model_folder = "Upsample_Tuning"
-    model_name = "UNet_Bicubic"
+    model_name = "B2_B2_All"
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 

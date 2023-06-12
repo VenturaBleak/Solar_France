@@ -304,8 +304,8 @@ class Segformer(nn.Module):
         )
 
         # choose between Upsampling via Scaling or DeConvolution
-        self.upsample = nn.Upsample(scale_factor=4, mode='bilinear', align_corners=True)
-        # self.upsample = nn.Upsample(scale_factor=4, mode='nearest')
+        # self.upsample = nn.Upsample(scale_factor=4, mode='bicubic', align_corners=False)
+        self.upsample = nn.Upsample(scale_factor=4, mode='nearest')
         # self.upsample = nn.ConvTranspose2d(num_classes, num_classes, kernel_size=8, stride=4, padding=2, output_padding=0, groups=num_classes, bias=False)
 
     def forward(self, x):
@@ -343,9 +343,10 @@ def segformer_test():
     print(f'Output shape:{preds.shape}')
     # Check if output shape matches input shape
     assert preds.shape == torch.randn((3, 1, 416, 416)).shape
+    print('Test successful!')
 
 # Potential idea: implement Unet-Transformer Model
 # https://github.com/labmlai/annotated_deep_learning_paper_implementations/blob/05321d644e4fed67d8b2856adc2f8585e79dfbee/labml_nn/diffusion/stable_diffusion/model/unet.py
 
 if __name__ == "__main__":
-    test()
+    segformer_test()

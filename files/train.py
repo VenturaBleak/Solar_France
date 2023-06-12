@@ -48,6 +48,9 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         # scaler.scale(loss).backward() is used to scale the loss and backpropagate
         scaler.scale(loss).backward()
 
+        # Clip the gradients to prevent them from exploding
+        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+
         # scaler.step(optimizer) is used to scale the gradients
         scaler.step(optimizer)
 
