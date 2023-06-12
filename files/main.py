@@ -56,7 +56,7 @@ def main(model_arch):
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
-    CROPPING = False
+    CROPPING = True
     CALCULATE_MEAN_STD = False
 
     ############################
