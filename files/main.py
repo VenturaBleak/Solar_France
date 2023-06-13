@@ -56,7 +56,7 @@ def main(model_arch):
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
-    CROPPING = True
+    CROPPING = False
     CALCULATE_MEAN_STD = False
 
     ############################
@@ -287,13 +287,13 @@ def main(model_arch):
     # optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # AdamW optimizer
-    WEIGHT_DECAY = 1e-2 # (0.01)
-    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    # WEIGHT_DECAY = 1e-2 # (0.01)
+    # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # SGD optimizer with momentum and weight decay
-    # momentum = 0.9
-    # WEIGHT_DECAY = 1e-5
-    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.9, weight_decay=WEIGHT_DECAY)
+    MOMENTUM = 0.9
+    WEIGHT_DECAY = 1e-4
+    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
 
     ############################
     # LR Scheduler
@@ -375,7 +375,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment3"
-    model_name = model_arch + "_" + "All"
+    model_name = model_arch + "_" + "All_SGD_Clipping"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
