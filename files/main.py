@@ -283,17 +283,17 @@ def main(model_arch):
     # link https://discuss.pytorch.org/t/change-weight-decay-during-training/70377/2
 
     # Adam optimizer
-    # WEIGHT_DECAY = 1e-5 # (0.00001)
-    # optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    WEIGHT_DECAY = 1e-5 # (0.00001)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # AdamW optimizer
     # WEIGHT_DECAY = 1e-2 # (0.01)
     # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # SGD optimizer with momentum and weight decay
-    MOMENTUM = 0.9
-    WEIGHT_DECAY = 1e-4
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+    # MOMENTUM = 0.9
+    # WEIGHT_DECAY = 1e-5
+    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
 
     ############################
     # LR Scheduler
@@ -375,7 +375,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment3"
-    model_name = model_arch + "_" + "All_SGD_Clipping"
+    model_name = model_arch + "_" + "All_Adam"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -470,6 +470,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B2"]
+    model_archs = ["B3"]
     for model_arch in model_archs:
         main(model_arch)
