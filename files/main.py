@@ -283,17 +283,15 @@ def main(model_arch):
     # link https://discuss.pytorch.org/t/change-weight-decay-during-training/70377/2
 
     # Adam optimizer
-    WEIGHT_DECAY = 1e-5 # (0.00001)
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    # WEIGHT_DECAY = 1e-5 # (0.00001)
+    # optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # AdamW optimizer
-    # WEIGHT_DECAY = 1e-2 # (0.01)
-    # optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    WEIGHT_DECAY = 1e-2 # (0.01)
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
     # SGD optimizer with momentum and weight decay
-    # MOMENTUM = 0.9
-    # WEIGHT_DECAY = 1e-5
-    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
 
     ############################
     # LR Scheduler
