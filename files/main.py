@@ -47,7 +47,7 @@ def main(model_arch):
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 1000
+    NUM_EPOCHS = 400
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -380,7 +380,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment3"
-    model_name = model_arch + "_" + "NL_Adam"
+    model_name = model_arch + "_" + "NL_Focal"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
