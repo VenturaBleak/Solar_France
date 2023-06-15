@@ -47,7 +47,7 @@ def main(model_arch):
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 1000
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -56,7 +56,7 @@ def main(model_arch):
     IMAGE_WIDTH = 416  # 400 originally
     PIN_MEMORY = True
     WARMUP_EPOCHS = int(NUM_EPOCHS * 0.05) # 5% of the total epochs
-    CROPPING = False
+    CROPPING = True
     CALCULATE_MEAN_STD = False
 
     ############################
@@ -346,10 +346,9 @@ def main(model_arch):
     ############################
     model_dir = "_Initialized"
 
-
     #ToDo: delete this
-    model_dir = "Experiment3"
-    model_arch = "B3_NL_Adam"
+    # model_dir = "Experiment3"
+    # model_arch = "B3_NL_Adam"
 
     try:
         # load the model
@@ -364,7 +363,8 @@ def main(model_arch):
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
-    model_arch = "B3"
+    # to do: delete this
+    # model_arch = "B3"
 
     ############################
     # Visualize sample images
@@ -382,7 +382,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment3"
-    model_name = model_arch + "_" + "NL_Adam_Second"
+    model_name = model_arch + "_" + "NL_Adam"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -477,6 +477,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B3"]
+    model_archs = ["B1"]
     for model_arch in model_archs:
         main(model_arch)
