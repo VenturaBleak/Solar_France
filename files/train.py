@@ -54,9 +54,9 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         # scaler.step(optimizer) is used to scale the gradients
-        scaler.step(optimizer)
+        # scaler.step(optimizer)
         # optimizer.step() is used to backpropagate without scaling the gradients
-        # optimizer.step()
+        optimizer.step()
 
         # scaler.update() is used to update the scale for next iteration
         # scaler.update()
