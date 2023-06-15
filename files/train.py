@@ -49,7 +49,7 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         scaler.scale(loss).backward()
 
         # Clip the gradients to prevent them from exploding
-        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         # scaler.step(optimizer) is used to scale the gradients
         scaler.step(optimizer)
