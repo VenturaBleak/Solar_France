@@ -15,8 +15,8 @@ def create_gif(model_name, image_name_pattern, output_gif_name, model_path, num_
 
 if __name__ == "__main__":
     NUM_EPOCHS = 100
-    model_folder = "Experiment1"
-    model_name = "UNet_ALLbutNL"
+    model_folder = "Experiment2"
+    model_name = "UNet_pretrained100"
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 

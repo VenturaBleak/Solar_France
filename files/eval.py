@@ -176,13 +176,13 @@ if __name__ == '__main__':
 
     # Define the path to the trained models directory
     file_path = os.path.join(parent_dir, "models")
-    experiment_dir = os.path.join(file_path, "Experiment1")
+    experiment_dir = os.path.join(file_path, "Experiment2")
 
     ########################################
     # Plot single model
     ########################################
     # specify the model name to evaluate
-    MODEL_NAME = "UNet_AllbutNL"
+    MODEL_NAME = "UNet_NL"
 
     # Load the DataFrame from CSV file
     df = pd.read_csv(os.path.join(experiment_dir, f"{MODEL_NAME}_logs.csv"))
