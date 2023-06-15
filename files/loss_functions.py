@@ -90,7 +90,7 @@ class IoULoss(nn.Module):
         return 1 - IoU
 
 # Focal Loss
-ALPHA = 0.1
+ALPHA = 0.995
 GAMMA = 2
 
 class FocalLoss(nn.Module):
