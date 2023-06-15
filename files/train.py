@@ -36,11 +36,11 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         y = y.float().to(device)
 
         # forward using autocast, which allows for mixed precision, i.e. half precision -> speed up training process
-        with torch.cuda.amp.autocast():
-            # forward pass
-            preds = model(X)
-            # calculate loss
-            loss = loss_fn(preds, y)
+        # with torch.cuda.amp.autocast():
+        # forward pass
+        preds = model(X)
+        # calculate loss
+        loss = loss_fn(preds, y)
 
         # zero out gradients
         optimizer.zero_grad()
