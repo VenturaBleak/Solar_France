@@ -267,14 +267,14 @@ def main(model_arch):
     # loss_fn = IoULoss()
 
     # Tversky
-    loss_fn = TverskyLoss()
+    # loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
     # loss_fn = DiceBCELoss()
 
     # Focal
-    # loss_fn = FocalLoss()
+    loss_fn = FocalLoss()
 
     ############################
     # Optimizer
