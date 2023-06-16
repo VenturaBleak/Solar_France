@@ -43,11 +43,11 @@ def main(model_arch):
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 5e-5 # (0.0001)
+    LEARNING_RATE = 1e-4 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 500
+    NUM_EPOCHS = 200
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -81,11 +81,11 @@ def main(model_arch):
     train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0, 0],
-        ['France_ign', 0, 0],
-        ['Munich', 0, 0],
-        ['China', 0, 0],
-        ['Denmark', 0, 0],
+        ['France_google', 1, 0],
+        ['France_ign', 1, 0],
+        ['Munich', 1, 0],
+        ['China', 1, 0],
+        ['Denmark', 1, 0],
         ['Heerlen_2018_HR_output', 1, 0],
         ['ZL_2018_HR_output', 1, 0],
     ]
@@ -345,8 +345,8 @@ def main(model_arch):
     model_dir = "_Initialized"
 
     #ToDo: delete this
-    model_dir = "Experiment3"
-    model_arch = "B1_NL_Focal"
+    # model_dir = "Experiment3"
+    # model_arch = "B1_NL_Focal"
 
     try:
         # load the model
@@ -361,8 +361,8 @@ def main(model_arch):
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
-    # to do: delete this
-    model_arch = "B1"
+    # ToDo: delete this
+    # model_arch = "B1"
 
     ############################
     # Visualize sample images
@@ -380,7 +380,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment3"
-    model_name = model_arch + "_" + "NL_Focal_SecondRun"
+    model_name = model_arch + "_" + "All_Focal"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
@@ -475,6 +475,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B1"]
+    model_archs = ["B2"]
     for model_arch in model_archs:
         main(model_arch)
