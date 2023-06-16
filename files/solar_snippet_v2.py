@@ -258,13 +258,13 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     # Paste the solar panel onto the target image and its mask
     target_mask = paste_solar_panel(target_image, target_mask, target_mask_np, cropped_image, cropped_mask, target_location, target_bounding_box)
 
-    # keep only 200x200 center of the images and masks, rest should be black padding
-    target_image = target_image.crop((100, 100, 300, 300))
-    target_mask = target_mask.crop((100, 100, 300, 300))
-
-    # padding to resize to 400x400
-    target_image = ImageOps.expand(target_image, border=100, fill='black')
-    target_mask = ImageOps.expand(target_mask, border=100, fill='black')
+    # # keep only 200x200 center of the images and masks, rest should be black padding
+    # target_image = target_image.crop((100, 100, 300, 300))
+    # target_mask = target_mask.crop((100, 100, 300, 300))
+    #
+    # # padding to resize to 400x400
+    # target_image = ImageOps.expand(target_image, border=100, fill='black')
+    # target_mask = ImageOps.expand(target_mask, border=100, fill='black')
 
     # Return the modified target image and its mask
     return target_image, target_mask
