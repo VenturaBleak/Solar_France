@@ -36,30 +36,30 @@ def train_fn(loader, model, optimizer, loss_fn, scaler, scheduler, device, epoch
         y = y.float().to(device)
 
         # forward using autocast, which allows for mixed precision, i.e. half precision -> speed up training process
-        # with torch.cuda.amp.autocast():
-        # forward pass
-        preds = model(X)
-        # calculate loss
-        loss = loss_fn(preds, y)
+        with torch.cuda.amp.autocast():
+            # forward pass
+            preds = model(X)
+            # calculate loss
+            loss = loss_fn(preds, y)
 
         # zero out gradients
         optimizer.zero_grad()
 
         # scaler.scale(loss).backward() is used to scale the loss and backpropagate
-        #scaler.scale(loss).backward()
+        scaler.scale(loss).backward()
         # loss.backward() is used to backpropagate without scaling the loss
-        loss.backward()
+        # loss.backward()
 
         # Clip the gradients to prevent them from exploding
         # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
 
         # scaler.step(optimizer) is used to scale the gradients
-        # scaler.step(optimizer)
+        scaler.step(optimizer)
         # optimizer.step() is used to backpropagate without scaling the gradients
-        optimizer.step()
+        # optimizer.step()
 
         # scaler.update() is used to update the scale for next iteration
-        # scaler.update()
+        scaler.update()
 
 
         epoch_loss += loss.item()
