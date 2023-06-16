@@ -43,7 +43,7 @@ def main(model_arch):
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 1e-4 # (0.0001)
+    LEARNING_RATE = 5e-5 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
@@ -345,8 +345,8 @@ def main(model_arch):
     model_dir = "_Initialized"
 
     #ToDo: delete this
-    # model_dir = "Experiment3"
-    # model_arch = "B3_NL_Adam"
+    model_dir = "Experiment3"
+    model_arch = "B1_NL_Focal"
 
     try:
         # load the model
@@ -362,7 +362,7 @@ def main(model_arch):
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
     # to do: delete this
-    # model_arch = "B3"
+    model_arch = "B1"
 
     ############################
     # Visualize sample images
