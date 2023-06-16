@@ -40,7 +40,7 @@ def split_data(dataset_fractions, parent_dir, data_dir, train_fraction):
             files_train, files_val, files_test = files[:num_train], files[num_train:num_train + num_val], files[num_train + num_val:]
 
             # Loop over each split: train, val, test
-            for split, files_split in [('train', files_train), ('val', files_val), ('test', files_test)]:
+            for split, files_split in [('train_aug', files_train), ('val', files_val), ('test_aug', files_test)]:
                 # Define the directories for images and masks in the split dataset
                 split_image_dir = os.path.join(parent_dir, f'data_{split}', dataset_name, f'images_{category}')
                 split_mask_dir = os.path.join(parent_dir, f'data_{split}', dataset_name, f'masks_{category}')
@@ -138,15 +138,15 @@ if __name__ == '__main__':
     # Get the current working directory
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
-    train_fraction = 1
+    train_fraction = 0.8
 
     data_dir = "data"
     dataset_fractions = [
-        ['France_google', 1, 0],
-        ['France_ign', 1, 0],
+        ['France_google', 0, 0],
+        ['France_ign', 0, 0],
         ['Munich', 1, 0],
-        ['China', 1, 0],
-        ['Denmark', 1, 0]
+        ['China', 0, 0],
+        ['Denmark', 0, 0]
     ]
 
     # data_dir = "data_NL"

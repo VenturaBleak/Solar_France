@@ -406,11 +406,11 @@ if __name__ == "__main__":
 
     # Specify the directories of the building images and masks
     building_image_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'images')
-    building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'building_masks')
+    building_mask_dir = os.path.join(parent_dir, 'data', 'Munich_rooftops_noPV', 'black_masks')
 
     # Specify the directories to save the output images and masks
-    output_image_dir = os.path.join(parent_dir, 'data_snippet', 'Munich_TA', 'images_positive')
-    output_mask_dir = os.path.join(parent_dir, 'data_snippet', 'Munich_TA', 'masks_positive')
+    output_image_dir = os.path.join(parent_dir, 'data_snippet', 'Munich_RA', 'images_positive')
+    output_mask_dir = os.path.join(parent_dir, 'data_snippet', 'Munich_RA', 'masks_positive')
 
     # Get the list of solar images and masks
     train_images_positive = sorted([f for f in os.listdir(positive_image_dir) if f.endswith('.png')])
