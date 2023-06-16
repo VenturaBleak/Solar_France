@@ -258,7 +258,7 @@ def main(model_arch):
     # Loss function
     ############################
     # BCE
-    # loss_fn = nn.BCEWithLogitsLoss()
+    loss_fn = nn.BCEWithLogitsLoss()
 
     # Dice
     # oss_fn = DiceLoss()
@@ -274,7 +274,7 @@ def main(model_arch):
     # loss_fn = DiceBCELoss()
 
     # Focal
-    loss_fn = FocalLoss()
+    # loss_fn = FocalLoss()
 
     ############################
     # Optimizer
