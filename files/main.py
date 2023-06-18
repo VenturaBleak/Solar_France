@@ -490,7 +490,6 @@ def main(model_arch):
     }
     save_checkpoint(checkpoint, model_dir=model_dir, model_name=f"{model_name}_200", parent_dir=parent_dir)
 
-
 if __name__ == "__main__":
     # loop over main for the following parameters
     model_archs = ["UNet"]
