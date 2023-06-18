@@ -99,7 +99,6 @@ def crop_solar_panel(image, mask):
         print("Invalid bounding box: ", bounding_box)
         empty_image = Image.new("RGB", (1, 1))
         empty_mask = Image.new("1", (1, 1))
-        exit()
         return empty_image, empty_mask
     cropped_image = image.crop(bounding_box)  # Crop the image using the bounding box
     cropped_mask = Image.fromarray(largest_cc_mask[bounding_box[1]:bounding_box[3], bounding_box[0]:bounding_box[2]])  # Crop the mask using the bounding box
@@ -324,8 +323,6 @@ class ImageProcessor:
         source_mask = Image.open(solar_mask_path).convert("L")
         target_image = Image.open(building_image_path).convert("RGB")
         target_mask = Image.open(building_mask_path).convert("L")
-
-        print(f"Source image: {solar_image_path}")
 
         modified_target_image, modified_target_mask = modify_images(source_image, source_mask, target_image,
                                                                     target_mask)
