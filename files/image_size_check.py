@@ -141,12 +141,38 @@ def check_negative_masks_move_to_positive(images_positive_dir, masks_positive_di
 
     print(f"Moved {count} files to positive folders.")
 
+###############################
+# Remove Images with Less than X White Pixels
+###############################
+
+def count_white_pixels(mask):
+    return sum(pixel == 255 for pixel in mask.getdata())
+
+def remove_images_with_less_than_x_white_pixels(image_dir, mask_dir, x=10):
+    masks = sorted(os.listdir(mask_dir))
+    images = sorted(os.listdir(image_dir))
+
+    count = 0
+
+    for image_name, mask_name in zip(images, masks):
+        mask_path = os.path.join(mask_dir, mask_name)
+        mask = Image.open(mask_path)
+
+        if count_white_pixels(mask) < x:
+            image_path = os.path.join(image_dir, image_name)
+            os.remove(image_path)
+            os.remove(mask_path)
+            print(f"Removed {image_name} and {mask_name} due to insufficient white pixels")
+            count += 1
+
+    print(f"Removed {count} images and masks with less than {x} white pixels.")
+
 
 ############################################################################################################
 # Main functions
 ############################################################################################################
 
-def check_dimensions_main(dataset_folders):
+def check_dimensions_main(dataset_folders, data_dir):
     print("###############################################")
     print("Checking dimensions in images and masks folders...")
 
@@ -159,7 +185,7 @@ def check_dimensions_main(dataset_folders):
     for dataset in dataset_folders:
         print(f"Checking dataset: {dataset}")
 
-        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset)
+        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset, data_dir)
 
         images_positive_list = sorted(os.listdir(images_positive_dir))
         images_negative_list = sorted(os.listdir(images_negative_dir))
@@ -172,7 +198,7 @@ def check_dimensions_main(dataset_folders):
         check_dimensions(images_negative_dir, masks_negative_dir, images_negative_list, masks_negative_list)
         print()
 
-def remove_unmatched_files_main(dataset_folders):
+def remove_unmatched_files_main(dataset_folders, data_dir):
     print("###############################################")
     print("Removing unmatched files in images and masks folders...")
 
@@ -185,12 +211,12 @@ def remove_unmatched_files_main(dataset_folders):
     for dataset in dataset_folders:
         print(f"Removing unmatched files in dataset: {dataset}")
 
-        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset)
+        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset, data_dir)
 
         remove_unmatched_files(images_positive_dir, masks_positive_dir)
         remove_unmatched_files(images_negative_dir, masks_negative_dir)
         print()
-def check_positive_masks_move_to_negative_main(dataset_folders):
+def check_positive_masks_move_to_negative_main(dataset_folders, data_dir):
     print("###############################################")
     print("Checking positive masks and moving to negative if necessary...")
 
@@ -203,31 +229,43 @@ def check_positive_masks_move_to_negative_main(dataset_folders):
     for dataset in dataset_folders:
         print(f"Checking positive masks and moving to negative if necessary in dataset: {dataset}")
 
-        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset)
+        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset, data_dir)
 
         check_positive_masks_move_to_negative(images_positive_dir, masks_positive_dir, images_negative_dir, masks_negative_dir)
         print()
 
-def check_negative_masks_move_to_positive_main(dataset_folders):
+def check_negative_masks_move_to_positive_main(dataset_folders, data_dir):
     print("###############################################")
     print("Checking negative masks and moving to positive if necessary...")
 
     for dataset in dataset_folders:
         print(f"Checking negative masks and moving to positive if necessary in dataset: {dataset}")
 
-        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset)
+        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset, data_dir)
 
         check_negative_masks_move_to_positive(images_positive_dir, masks_positive_dir, images_negative_dir, masks_negative_dir)
         print()
 
-def get_directory_paths(dataset):
+def remove_images_with_less_than_x_white_pixels_main(dataset_folders, data_dir):
+    # remove images with less than x white pixels
+    print("###############################################")
+    print("Removing images and masks with less than x white pixels...")
+    for dataset in dataset_folders:
+        images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir = get_directory_paths(dataset, data_dir)
+
+        print(f"Processing dataset: {dataset}")
+        print("Processing positive images and masks...")
+        remove_images_with_less_than_x_white_pixels(images_positive_dir, masks_positive_dir)
+        print()
+
+def get_directory_paths(dataset, data_dir):
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
 
-    images_positive_dir = os.path.join(parent_dir, "data", dataset, "images_positive")
-    images_negative_dir = os.path.join(parent_dir, "data", dataset, "images_negative")
-    masks_positive_dir = os.path.join(parent_dir, "data", dataset, "masks_positive")
-    masks_negative_dir = os.path.join(parent_dir, "data", dataset, "masks_negative")
+    images_positive_dir = os.path.join(parent_dir, data_dir, dataset, "images_positive")
+    images_negative_dir = os.path.join(parent_dir, data_dir, dataset, "images_negative")
+    masks_positive_dir = os.path.join(parent_dir, data_dir, dataset, "masks_positive")
+    masks_negative_dir = os.path.join(parent_dir, data_dir, dataset, "masks_negative")
 
     return images_positive_dir, images_negative_dir, masks_positive_dir, masks_negative_dir
 
@@ -257,15 +295,15 @@ def remove_non_white_masks(image_dir, mask_dir):
 
     print(f"Removed {count} files without white pixels.")
 
-def check_dataset_no_pv(dataset):
+def check_dataset_no_pv(dataset, data_dir="data"):
     print("###############################################")
     print(f"Processing dataset: {dataset}")
 
     cwd = os.getcwd()
     parent_dir = os.path.dirname(cwd)
 
-    images_dir = os.path.join(parent_dir, "data", dataset, "images")
-    masks_dir = os.path.join(parent_dir, "data", dataset, "building_masks")
+    images_dir = os.path.join(parent_dir, data_dir, dataset, "images")
+    masks_dir = os.path.join(parent_dir, data_dir, dataset, "building_masks")
 
     images_list = sorted(os.listdir(images_dir))
     masks_list = sorted(os.listdir(masks_dir))
@@ -291,14 +329,26 @@ if __name__ == "__main__":
     # specify the dataset folders to check
     dataset_folders = ['Munich']
 
+    data_dir = "data"
+
     # perform check dimensions
-    check_dimensions_main(dataset_folders)
+    check_dimensions_main(dataset_folders, data_dir)
 
     # perform remove unmatched files
-    remove_unmatched_files_main(dataset_folders)
+    remove_unmatched_files_main(dataset_folders, data_dir)
 
     # perform check positive masks and move to negative
-    check_positive_masks_move_to_negative_main(dataset_folders)
+    check_positive_masks_move_to_negative_main(dataset_folders, data_dir)
 
     # perform check negative masks and move to positive
-    check_negative_masks_move_to_positive_main(dataset_folders)
+    check_negative_masks_move_to_positive_main(dataset_folders, data_dir)
+
+    data_dir = "data_train_aug"
+
+    # remove images with less than x white pixels
+    remove_images_with_less_than_x_white_pixels_main(dataset_folders, data_dir)
+
+    data_dir = "data_test_aug"
+
+    # remove images with less than x white pixels
+    remove_images_with_less_than_x_white_pixels_main(dataset_folders, data_dir)

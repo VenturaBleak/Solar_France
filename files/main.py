@@ -78,17 +78,26 @@ def main(model_arch):
     parent_dir = os.path.dirname(cwd)
 
     # specify the training datasets
-    train_folder = 'data_train'
+    train_folder = 'data_snippet'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 1, 0],
-        ['France_ign', 1, 0],
-        ['Munich', 1, 0],
-        ['China', 1, 0],
-        ['Denmark', 1, 0],
-        ['Heerlen_2018_HR_output', 1, 0],
-        ['ZL_2018_HR_output', 1, 0],
+        ['Munich_TA', 0, 0],
+        ['Munich_RA', 0, 0],
+        ['Heerlen_RA', 1, 0],
+        ['ZL_RA', 1, 0],
     ]
+
+    # train_folder = 'data_train'
+    # train_ds = [
+    # # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+    #     ['France_google', 1, 0],
+    #     ['France_ign', 1, 0],
+    #     ['Munich', 1, 0],
+    #     ['China', 1, 0],
+    #     ['Denmark', 1, 0],
+    #     ['Heerlen_2018_HR_output', 1, 0],
+    #     ['ZL_2018_HR_output', 1, 0],
+    # ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
     train_images, train_masks = fetch_filepaths(
@@ -379,8 +388,8 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment3"
-    model_name = model_arch + "_" + "All_BCE"
+    model_dir = "Experiment4"
+    model_name = model_arch + "_" + "NL"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
