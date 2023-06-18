@@ -284,8 +284,8 @@ def check_dataset_no_pv(dataset):
 if __name__ == "__main__":
 
     # process the dataset without PV
-    # dataset_no_pv = "Munich_rooftops_noPV"
-    # check_dataset_no_pv(dataset_no_pv)
+    dataset_no_pv = "Munich_rooftops_noPV"
+    check_dataset_no_pv(dataset_no_pv)
 
 
     # specify the dataset folders to check
