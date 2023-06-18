@@ -148,7 +148,7 @@ def check_negative_masks_move_to_positive(images_positive_dir, masks_positive_di
 def count_white_pixels(mask):
     return sum(pixel == 255 for pixel in mask.getdata())
 
-def remove_images_with_less_than_x_white_pixels(image_dir, mask_dir, x=10):
+def remove_images_with_less_than_x_white_pixels(image_dir, mask_dir, x=25):
     masks = sorted(os.listdir(mask_dir))
     images = sorted(os.listdir(image_dir))
 
