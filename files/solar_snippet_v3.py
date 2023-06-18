@@ -84,6 +84,8 @@ def crop_solar_panel(image, mask):
         labeled_mask, num_features = ndi.label(mask_np)  # Label connected components in the mask
         largest_cc = np.argmax(np.bincount(labeled_mask.flat)[1:]) + 1  # Find the label of the largest connected component
         largest_cc_mask = (labeled_mask == largest_cc).astype(np.uint8) * 255  # Create a binary mask of the largest connected component
+        if largest_cc_mask.shape !=  (400, 400):
+            print("Largest connected component mask shape:", largest_cc_mask.shape)
     # handle edge case where there are no white pixels in the mask
     except:
         # Return empty image and mask instead of raising an error
@@ -93,6 +95,11 @@ def crop_solar_panel(image, mask):
 
     white_pixels = np.nonzero(largest_cc_mask)  # Get the pixel coordinates of white pixels in the largest connected component mask
     bounding_box = (np.min(white_pixels[1]), np.min(white_pixels[0]), np.max(white_pixels[1]), np.max(white_pixels[0]))  # Calculate the bounding box of the largest connected component
+    if bounding_box[2] - bounding_box[0] <= 0 or bounding_box[3] - bounding_box[1] <= 0:
+        print("Invalid bounding box: ", bounding_box)
+        empty_image = Image.new("RGB", (1, 1))
+        empty_mask = Image.new("1", (1, 1))
+        return empty_image, empty_mask
     cropped_image = image.crop(bounding_box)  # Crop the image using the bounding box
     cropped_mask = Image.fromarray(largest_cc_mask[bounding_box[1]:bounding_box[3], bounding_box[0]:bounding_box[2]])  # Crop the mask using the bounding box
 
