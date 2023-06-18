@@ -97,6 +97,9 @@ def crop_solar_panel(image, mask):
     bounding_box = (np.min(white_pixels[1]), np.min(white_pixels[0]), np.max(white_pixels[1]), np.max(white_pixels[0]))  # Calculate the bounding box of the largest connected component
     if bounding_box[2] - bounding_box[0] <= 0 or bounding_box[3] - bounding_box[1] <= 0:
         print("Invalid bounding box: ", bounding_box)
+        empty_image = Image.new("RGB", (1, 1))
+        empty_mask = Image.new("1", (1, 1))
+        return empty_image, empty_mask
     cropped_image = image.crop(bounding_box)  # Crop the image using the bounding box
     cropped_mask = Image.fromarray(largest_cc_mask[bounding_box[1]:bounding_box[3], bounding_box[0]:bounding_box[2]])  # Crop the mask using the bounding box
 
