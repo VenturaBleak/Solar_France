@@ -176,7 +176,7 @@ if __name__ == '__main__':
 
     # Define the path to the trained models directory
     file_path = os.path.join(parent_dir, "models")
-    experiment_dir = os.path.join(file_path, "Experiment4")
+    experiment_dir = os.path.join(file_path, "Experiment2")
 
     ########################################
     # Plot single model

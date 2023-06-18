@@ -258,16 +258,16 @@ def main(model_arch):
     # Loss function
     ############################
     # BCE
-    loss_fn = nn.BCEWithLogitsLoss()
+    # loss_fn = nn.BCEWithLogitsLoss()
 
     # Dice
-    # oss_fn = DiceLoss()
+    # loss_fn = DiceLoss()
 
     # IoU
     # loss_fn = IoULoss()
 
     # Tversky
-    # loss_fn = TverskyLoss()
+    loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
@@ -475,6 +475,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B2"]
+    model_archs = ["UNet"]
     for model_arch in model_archs:
         main(model_arch)
