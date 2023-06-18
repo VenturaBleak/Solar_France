@@ -113,6 +113,7 @@ def find_angle(mask):
         angle = props['orientation'][0]
     # except index error when there are no white pixels in the mask and value error when there is only one white pixel in the mask
     except:
+        print("No angle found, continuing with 0 angle")
         angle = 0
     return angle
 

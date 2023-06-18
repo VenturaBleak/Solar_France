@@ -107,12 +107,15 @@ def find_angle(mask):
     # mask.show()
 
     try:
+        mask.load()
         mask_array = np.array(mask)
         binary_mask = (mask_array == 255).astype(int)
         props = regionprops_table(binary_mask, properties=['orientation'])
         angle = props['orientation'][0]
     # except index error when there are no white pixels in the mask and value error when there is only one white pixel in the mask
     except:
+        print(mask.size, mask.mode)
+        exit()
         angle = 0
     return angle
 
