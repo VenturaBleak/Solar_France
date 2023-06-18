@@ -14,9 +14,9 @@ def create_gif(model_name, image_name_pattern, output_gif_name, model_path, num_
                            crop_image=crop_image)
 
 if __name__ == "__main__":
-    NUM_EPOCHS = 100
-    model_folder = "Experiment2"
-    model_name = "UNet_pretrained100"
+    NUM_EPOCHS = 200
+    model_folder = "Experiment1"
+    model_name = "UNet_NL"
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 

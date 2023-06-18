@@ -482,6 +482,15 @@ def main(model_arch):
     # print total training time in hours, minutes, seconds
     print("All epochs completed. Total training time: ", time.strftime("%H:%M:%S", time.gmtime(end_time - start_time)))
 
+    # save last state of the model
+    # save model and sample predictions
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    save_checkpoint(checkpoint, model_dir=model_dir, model_name=f"{model_name}_200", parent_dir=parent_dir)
+
+
 if __name__ == "__main__":
     # loop over main for the following parameters
     model_archs = ["UNet"]

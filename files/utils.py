@@ -233,7 +233,7 @@ def create_gif_from_images(image_folder, image_name_pattern, output_gif_name, im
     # Create the GIF
     if selected_images:  # only if the list is not empty
         selected_images[0].save(os.path.join(image_folder, output_gif_name), save_all=True,
-                                append_images=selected_images[1:], optimize=False, duration=num_epochs * 15, loop=0,
+                                append_images=selected_images[1:], optimize=False, duration=num_epochs * 6, loop=0,
                                 dither=Image.FLOYDSTEINBERG)
         print(f"Created GIF '{output_gif_name}' with {len(selected_images)} images.")
     else:
