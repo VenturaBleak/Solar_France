@@ -354,8 +354,8 @@ def main(model_arch):
     model_dir = "_Initialized"
 
     #ToDo: delete this
-    # model_dir = "Experiment3"
-    # model_arch = "B1_NL_Tversky"
+    model_dir = "Experiment4"
+    model_arch = "UNet_NL_BCE_200"
 
     try:
         # load the model
@@ -371,7 +371,7 @@ def main(model_arch):
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
     # ToDo: delete this
-    # model_arch = "B1"
+    model_arch = "B1"
 
     ############################
     # Visualize sample images
@@ -389,7 +389,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment4"
-    model_name = model_arch + "_" + "NL_BCE"
+    model_name = model_arch + "_" + "NL_BCE_ST"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()

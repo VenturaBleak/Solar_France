@@ -182,7 +182,7 @@ if __name__ == '__main__':
     # Plot single model
     ########################################
     # specify the model name to evaluate
-    MODEL_NAME = "B2_All_BCE"
+    MODEL_NAME = "UNet_All"
 
     # Load the DataFrame from CSV file
     df = pd.read_csv(os.path.join(experiment_dir, f"{MODEL_NAME}_logs.csv"))

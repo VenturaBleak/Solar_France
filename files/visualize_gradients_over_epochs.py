@@ -4,6 +4,7 @@ import re
 import pickle
 import numpy as np
 import seaborn as sns
+import math
 
 def plot_gradient_stats(model_name, layer_name, model_path, num_epochs):
     """
@@ -44,17 +45,26 @@ def plot_gradient_stats(model_name, layer_name, model_path, num_epochs):
             continue
 
         # Compute the mean and std of the layer gradient
-        mean = np.mean(layer_gradient)
-        std = np.std(layer_gradient)
+        mean = np.nanmean(layer_gradient)
+        std = np.nanstd(layer_gradient)
+
+        # If mean or std is nan, replace it with 0
+        if math.isnan(mean):
+            mean = 0
+        if math.isnan(std):
+            std = 0
+
+        # Print for debugging
+        print(f'Processing epoch {epoch}: mean={mean}, std={std}')
 
         # Append the mean and std to the respective lists
         means.append(mean)
         stds.append(std)
         actual_epochs.append(epoch)  # Add the epoch to the list
 
-        # New code: precalculate lower and upper bounds
-        lower_bounds = [mean - std for mean, std in zip(means, stds)]
-        upper_bounds = [mean + std for mean, std in zip(means, stds)]
+    # Compute the lower and upper bounds
+    lower_bounds = [mean - std for mean, std in zip(means, stds)]
+    upper_bounds = [mean + std for mean, std in zip(means, stds)]
 
     # Use seaborn for better aesthetics
     sns.set(style="white")
@@ -73,14 +83,14 @@ def plot_gradient_stats(model_name, layer_name, model_path, num_epochs):
 
 if __name__ == "__main__":
     NUM_EPOCHS = 200
-    model_folder = "Experiment4"
+    model_folder = "Experiment2"
 
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 
     # Name of the layer for which the gradient stats will be plotted
-    model_name = "B1_NL_BCE"
-    layer_name = 'mit.stages.3.2.1.1.fn.net.3.bias'
+    model_name = "UNet_NL"
+    layer_name = 'downs.3.conv.4.weight'
 
     # model_name = "B2_All_BCE"
     # layer_name = 'mit.stages.3.2.2.1.fn.net.1.net.0.bias'

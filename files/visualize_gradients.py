@@ -87,8 +87,8 @@ def create_gradient_plots(model_name, gradient_name_pattern, output_gif_name, mo
 
 if __name__ == "__main__":
     NUM_EPOCHS = 200
-    model_folder = "Experiment4"
-    model_name = "B1_NL_BCE"
+    model_folder = "Experiment2"
+    model_name = "UNet_ALL"
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 
