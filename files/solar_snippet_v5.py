@@ -227,8 +227,8 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     :param target_mask: Target mask -> this is the mask that will be modified
     :return: Modified target image and mask, now with a solar panel pasted onto it
     """
-    if np.sum(target_mask) == 0:  # If there are no white pixels in the target mask, raise an exception
-        raise ValueError("No white pixels in building mask.")
+    # if np.sum(target_mask) == 0:  # If there are no white pixels in the target mask, raise an exception
+    #    raise ValueError("No white pixels in building mask.")
 
     source_mask_np = np.array(source_mask, dtype=np.uint8)  # Convert the source mask to a numpy array
     source_mask_np[source_mask_np > 0] = 255  # Set all non-zero values to 255
@@ -280,7 +280,7 @@ class ImageProcessor:
         self.building_image_files = [os.path.join(self.building_image_dir, image) for image in sorted(os.listdir(self.building_image_dir)) if
                                      image.endswith('.png')]
         # building mask files
-        self.building_mask_files = [os.path.join(self.building_image_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
+        self.building_mask_files = [os.path.join(self.building_mask_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
                                     mask.endswith('.png')]
         # solar image files
         self.solar_image_files = [os.path.join(image_dir, image) for image_dir in solar_image_dirs for image in

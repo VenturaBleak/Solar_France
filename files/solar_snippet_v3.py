@@ -38,10 +38,10 @@ def find_random_white_patch(mask, min_pixel_count=200):
         # If there are no valid patches, randomly select a center and bounding box
         height, width = mask.shape
         # Define the boundaries for the center part of the image
-        center_start_x = width // 2 - 100
-        center_end_x = width // 2 + 100
-        center_start_y = height // 2 - 100
-        center_end_y = height // 2 + 100
+        center_start_x = width // 2 - 150
+        center_end_x = width // 2 + 150
+        center_start_y = height // 2 - 150
+        center_end_y = height // 2 + 150
         # Generate a random center within the center 200x200 part of the image
         center = (random.randint(center_start_x, center_end_x), random.randint(center_start_y, center_end_y))
 
@@ -233,8 +233,8 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     :param target_mask: Target mask -> this is the mask that will be modified
     :return: Modified target image and mask, now with a solar panel pasted onto it
     """
-    if np.sum(target_mask) == 0:  # If there are no white pixels in the target mask, raise an exception
-        raise ValueError("No white pixels in building mask.")
+    # if np.sum(target_mask) == 0:  # If there are no white pixels in the target mask, raise an exception
+    #     raise ValueError("No white pixels in building mask.")
 
     source_mask_np = np.array(source_mask, dtype=np.uint8)  # Convert the source mask to a numpy array
     source_mask_np[source_mask_np > 0] = 255  # Set all non-zero values to 255
@@ -286,7 +286,7 @@ class ImageProcessor:
         self.building_image_files = [os.path.join(self.building_image_dir, image) for image in sorted(os.listdir(self.building_image_dir)) if
                                      image.endswith('.png')]
         # building mask files
-        self.building_mask_files = [os.path.join(self.building_image_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
+        self.building_mask_files = [os.path.join(self.building_mask_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
                                     mask.endswith('.png')]
         # solar image files
         self.solar_image_files = [os.path.join(image_dir, image) for image_dir in solar_image_dirs for image in

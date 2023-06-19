@@ -52,6 +52,7 @@ def find_random_white_patch(mask, min_pixel_count=200):
         bounding_box = (center[0] - 30, center[1] - 30, center[0] + 30, center[1] + 30)
     else:
         patch_sizes = np.bincount(mask_labeled.flat)[1:]  # Count the size of each connected component
+
         valid_patches_indices = np.where(patch_sizes >= min_pixel_count)[0]  # Filter patches based on the minimum pixel count
 
         # If there are valid patches, randomly select a patch from the valid patches
@@ -242,6 +243,9 @@ def modify_images(source_image, source_mask, target_image, target_mask):
     target_mask_np = np.array(target_mask, dtype=np.uint8)  # Convert the target mask to a numpy array
     target_mask_np[target_mask_np > 0] = 255  # Set all non-zero values to 255
 
+    # test
+    # target_mask.show()
+
     # random sample from white patches with at minimum min_pixel_count pixels of white pixels on the target mask
     # experimented with the min_pixel_count parameter and 1500 seems to work well, given the 400x400 size of the target images
     MIN_PIXEL_COUNT = 1500
@@ -286,7 +290,7 @@ class ImageProcessor:
         self.building_image_files = [os.path.join(self.building_image_dir, image) for image in sorted(os.listdir(self.building_image_dir)) if
                                      image.endswith('.png')]
         # building mask files
-        self.building_mask_files = [os.path.join(self.building_image_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
+        self.building_mask_files = [os.path.join(self.building_mask_dir, mask) for mask in sorted(os.listdir(self.building_mask_dir)) if
                                     mask.endswith('.png')]
         # solar image files
         self.solar_image_files = [os.path.join(image_dir, image) for image_dir in solar_image_dirs for image in

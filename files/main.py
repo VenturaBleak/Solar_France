@@ -85,10 +85,10 @@ def main(model_arch):
     train_folder = 'data_snippet'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['Munich_TA', 1, 0],
+        ['Munich_TA', 0, 0],
         ['Munich_RA', 0, 0],
-        ['Heerlen_RA', 0, 0],
-        ['ZL_RA', 0, 0],
+        ['Heerlen_RA', 1, 0],
+        ['ZL_RA', 1, 0],
     ]
 
     # train_folder = 'data_train'
@@ -116,31 +116,17 @@ def main(model_arch):
     ############################
 
     # specify the validation datasets
-    # val_folder = 'data_test'
-    #
-    # val_ds = [
-    #     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-    #     ['France_google', 0, 0],
-    #     ['France_ign', 0., 0],
-    #     ['Munich', 0., 0],
-    #     ['China', 0., 0],
-    #     ['Denmark', 0., 0],
-    #     ['Heerlen_2018_HR_output', 1, 0],
-    #     ['ZL_2018_HR_output', 1, 0],
-    # ]
-
-    # specify the validation datasets
-    val_folder = 'data_test_aug'
+    val_folder = 'data_test'
 
     val_ds = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
         ['France_google', 0, 0],
         ['France_ign', 0., 0],
-        ['Munich', 1, 0],
+        ['Munich', 0, 0],
         ['China', 0., 0],
         ['Denmark', 0., 0],
-        ['Heerlen_2018_HR_output', 0, 0],
-        ['ZL_2018_HR_output', 0, 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
     ]
 
     # get all images in a given folder, that is: val_data
@@ -157,17 +143,17 @@ def main(model_arch):
     ############################
 
     # specify the vis datasets
-    vis_folder = 'data_test_aug'
+    vis_folder = 'data_test'
 
     vis_ds = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
         ['France_google', 0., 0],
         ['France_ign', 0., 0],
-        ['Munich', 1, 0],
+        ['Munich', 0, 0],
         ['China', 0., 0],
         ['Denmark', 0., 0],
-        ['Heerlen_2018_HR_output', 0, 0],
-        ['ZL_2018_HR_output', 0, 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
     ]
 
     # get all images in a given folder, that is: val_data
@@ -414,8 +400,8 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment5"
-    model_name = model_arch + "_" + "Munich_TA_BCE"
+    model_dir = "Experiment4"
+    model_name = model_arch + "_" + "NL_BCE"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
