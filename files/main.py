@@ -108,17 +108,31 @@ def main(model_arch):
     )
 
     # specify the validation datasets
-    val_folder = 'data_test'
+    # val_folder = 'data_test'
+    #
+    # val_ds = [
+    #     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+    #     ['France_google', 0, 0],
+    #     ['France_ign', 0., 0],
+    #     ['Munich', 0., 0],
+    #     ['China', 0., 0],
+    #     ['Denmark', 0., 0],
+    #     ['Heerlen_2018_HR_output', 1, 0],
+    #     ['ZL_2018_HR_output', 1, 0],
+    # ]
+
+    # specify the validation datasets
+    val_folder = 'data_test_aug'
 
     val_ds = [
         # [dataset_name, fraction_of_positivies, fraction_of_negatives]
         ['France_google', 0, 0],
         ['France_ign', 0., 0],
-        ['Munich', 0., 0],
+        ['Munich', 1, 0],
         ['China', 0., 0],
         ['Denmark', 0., 0],
-        ['Heerlen_2018_HR_output', 1, 0],
-        ['ZL_2018_HR_output', 1, 0],
+        ['Heerlen_2018_HR_output', 0, 0],
+        ['ZL_2018_HR_output', 0, 0],
     ]
 
     # get all images in a given folder, that is: val_data
@@ -133,16 +147,7 @@ def main(model_arch):
     # specify the vis datasets
     vis_folder = 'data_test'
 
-    vis_ds = [
-        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0., 0],
-        ['France_ign', 0., 0],
-        ['Munich', 0., 0],
-        ['China', 0., 0],
-        ['Denmark', 0., 0],
-        ['Heerlen_2018_HR_output', 1, 0],
-        ['ZL_2018_HR_output', 1, 0],
-    ]
+    vis_ds = val_ds
 
     # get all images in a given folder, that is: val_data
     vis_image_dirs, vis_mask_dirs, vis_fractions = get_dirs_and_fractions(vis_ds, parent_dir, vis_folder)
