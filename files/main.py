@@ -267,7 +267,7 @@ def main(model_arch):
     # Loss function
     ############################
     # BCE
-    loss_fn = nn.BCEWithLogitsLoss()
+    # loss_fn = nn.BCEWithLogitsLoss()
 
     # Dice
     # loss_fn = DiceLoss()
@@ -276,7 +276,7 @@ def main(model_arch):
     # loss_fn = IoULoss()
 
     # Tversky
-    # loss_fn = TverskyLoss()
+    loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
@@ -389,7 +389,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment4"
-    model_name = model_arch + "_" + "NL_BCE_ST"
+    model_name = model_arch + "_" + "NL_Tversky_ST"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
