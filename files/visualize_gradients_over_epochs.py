@@ -83,17 +83,20 @@ def plot_gradient_stats(model_name, layer_name, model_path, num_epochs):
 
 if __name__ == "__main__":
     NUM_EPOCHS = 200
-    model_folder = "Experiment1"
+    model_folder = "Experiment4"
 
     cwd = os.getcwd()
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 
     # Name of the layer for which the gradient stats will be plotted
-    model_name = "UNet_pretrained100"
-    layer_name = 'downs.3.conv.4.weight'
+    # model_name = "UNet_pretrained100"
+    # layer_name = 'downs.3.conv.4.weight'
 
-    # model_name = "B2_All_BCE"
-    # layer_name = 'mit.stages.3.2.2.1.fn.net.1.net.0.bias'
+    model_name = "B2_All_BCE"
+    layer_name = 'mit.stages.3.2.2.1.fn.net.1.net.0.bias'
+
+    # model_name = "B1_NL_BCE"
+    # layer_name = "mit.stages.3.2.1.1.fn.net.3.bias"
 
     # Call the function to plot the gradient stats
     plot_gradient_stats(model_name, layer_name, model_path, NUM_EPOCHS)

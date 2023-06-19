@@ -145,9 +145,18 @@ def main(model_arch):
     )
 
     # specify the vis datasets
-    vis_folder = 'data_test'
+    vis_folder = 'data_test_aug'
 
-    vis_ds = val_ds
+    vis_ds = [
+        # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+        ['France_google', 0., 0],
+        ['France_ign', 0., 0],
+        ['Munich', 1, 0],
+        ['China', 0., 0],
+        ['Denmark', 0., 0],
+        ['Heerlen_2018_HR_output', 0, 0],
+        ['ZL_2018_HR_output', 0, 0],
+    ]
 
     # get all images in a given folder, that is: val_data
     vis_image_dirs, vis_mask_dirs, vis_fractions = get_dirs_and_fractions(vis_ds, parent_dir, vis_folder)
@@ -376,7 +385,7 @@ def main(model_arch):
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
     # ToDo: delete this
-    # model_arch = "UNet"
+    # model_arch = "B1"
 
     ############################
     # Visualize sample images
