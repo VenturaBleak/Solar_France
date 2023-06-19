@@ -87,7 +87,7 @@ def main(model_arch):
         ['ZL_RA', 0, 0],
     ]
 
-    # train_folder = 'data_train'
+    train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
         ['France_google', 0, 0],
