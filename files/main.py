@@ -43,7 +43,7 @@ def main(model_arch):
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 1e-4 # (0.0001)
+    LEARNING_RATE = 5e-5 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
@@ -401,7 +401,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment4"
-    model_name = model_arch + "_" + "NL_Tvserky_ST1"
+    model_name = model_arch + "_" + "NL_Tvserky_ST2"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
