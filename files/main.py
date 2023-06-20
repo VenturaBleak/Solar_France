@@ -82,26 +82,26 @@ def main(model_arch):
     ############################
 
     # specify the training datasets
-    train_folder = 'data_snippet'
-    train_ds = [
-    # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['Munich_TA', 0, 0],
-        ['Munich_RA', 0, 0],
-        ['Heerlen_RA', 1, 0],
-        ['ZL_RA', 1, 0],
-    ]
-
-    # train_folder = 'data_train'
+    # train_folder = 'data_snippet'
     # train_ds = [
     # # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-    #     ['France_google', 0, 0],
-    #     ['France_ign', 0, 0],
-    #     ['Munich', 0, 0],
-    #     ['China', 0, 0],
-    #     ['Denmark', 0, 0],
-    #     ['Heerlen_2018_HR_output', 1, 0],
-    #     ['ZL_2018_HR_output', 1, 0],
+    #     ['Munich_TA', 0, 0],
+    #     ['Munich_RA', 0, 0],
+    #     ['Heerlen_RA', 1, 0],
+    #     ['ZL_RA', 1, 0],
     # ]
+
+    train_folder = 'data_train'
+    train_ds = [
+    # [dataset_name, fraction_of_positivies, fraction_of_negatives]
+        ['France_google', 0, 0],
+        ['France_ign', 0, 0],
+        ['Munich', 0, 0],
+        ['China', 0, 0],
+        ['Denmark', 0, 0],
+        ['Heerlen_2018_HR_output', 1, 0],
+        ['ZL_2018_HR_output', 1, 0],
+    ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
     train_images, train_masks = fetch_filepaths(
@@ -279,7 +279,7 @@ def main(model_arch):
     # Loss function
     ############################
     # BCE
-    loss_fn = nn.BCEWithLogitsLoss()
+    #loss_fn = nn.BCEWithLogitsLoss()
 
     # Dice
     # loss_fn = DiceLoss()
@@ -288,7 +288,7 @@ def main(model_arch):
     # loss_fn = IoULoss()
 
     # Tversky
-    # loss_fn = TverskyLoss()
+    loss_fn = TverskyLoss()
 
     # Careful: Loss functions below do not work with autocast in training loop!
     # Dice + BCE
@@ -366,8 +366,8 @@ def main(model_arch):
     model_dir = "_Initialized"
 
     #ToDo: delete this
-    # model_dir = "Experiment4"
-    # model_arch = "UNet_NL_BCE_200"
+    model_dir = "Experiment4"
+    model_arch = "UNet_NL_BCE"
 
     try:
         # load the model
@@ -383,7 +383,7 @@ def main(model_arch):
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
     # ToDo: delete this
-    # model_arch = "B1"
+    model_arch = "UNet"
 
     ############################
     # Visualize sample images
@@ -401,7 +401,7 @@ def main(model_arch):
 
     # retrieve model name for saving
     model_dir = "Experiment4"
-    model_name = model_arch + "_" + "NL_BCE"
+    model_name = model_arch + "_" + "NL_Tvserky_ST"
 
     # create a GradScaler once at the beginning of training.
     scaler = torch.cuda.amp.GradScaler()
