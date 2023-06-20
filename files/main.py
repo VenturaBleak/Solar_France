@@ -42,7 +42,7 @@ def main(model_arch):
     ############################
     # Hyperparameters
     ############################
-    RANDOM_SEED = 122204
+    RANDOM_SEED = 42
     LEARNING_RATE = 1e-4 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -367,7 +367,7 @@ def main(model_arch):
 
     #ToDo: delete this
     model_dir = "Experiment4"
-    model_arch = "UNet_NL_BCE"
+    model_arch = "UNet_NL_BCE_200"
 
     try:
         # load the model
