@@ -365,10 +365,6 @@ def main(model_arch):
     ############################
     model_dir = "_Initialized"
 
-    #ToDo: delete this
-    model_dir = "Experiment4"
-    model_arch = "UNet_NL_BCE_200"
-
     try:
         # load the model
         load_model(model_dir, model_arch, model, parent_dir)
@@ -381,9 +377,6 @@ def main(model_arch):
             "optimizer": optimizer.state_dict(),
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
-
-    # ToDo: delete this
-    model_arch = "UNet"
 
     ############################
     # Visualize sample images
