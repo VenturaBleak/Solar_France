@@ -74,6 +74,8 @@ def plot_metric(df, metric):
 
 
 def plot_precision_recall_f1(df):
+    # y axis is from 0 to 1
+    plt.ylim(0, 1)
     plt.plot(df["epoch"], df["precision"], label="Precision", color=plt.cm.Accent(0.1))
     plt.plot(df["epoch"], df["recall"], label="Recall", color=plt.cm.Accent(0.5))
     plt.plot(df["epoch"], df["f1_score"], label="F1-score", color=plt.cm.Accent(0.9))

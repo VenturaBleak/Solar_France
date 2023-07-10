@@ -43,11 +43,11 @@ def main(model_arch):
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 5e-5 # (0.0001)
+    LEARNING_RATE = 1e-4 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 200
+    NUM_EPOCHS = 400
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -94,13 +94,13 @@ def main(model_arch):
     train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0, 0],
-        ['France_ign', 0, 0],
-        ['Munich', 0, 0],
-        ['China', 0, 0],
-        ['Denmark', 0, 0],
-        ['Heerlen_2018_HR_output', 1, 0],
-        ['ZL_2018_HR_output', 1, 0],
+        ['France_google', 1, 0],
+        ['France_ign', 1, 0],
+        ['Munich', 1, 0],
+        ['China', 1, 0],
+        ['Denmark', 1, 0],
+        ['Heerlen_2018_HR_output', 0, 0],
+        ['ZL_2018_HR_output', 0, 0],
     ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
@@ -504,6 +504,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["UNet"]
+    model_archs = ["B3"]
     for model_arch in model_archs:
         main(model_arch)

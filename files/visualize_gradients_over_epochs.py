@@ -89,7 +89,7 @@ if __name__ == "__main__":
     model_path = os.path.join(os.path.dirname(cwd),"models", model_folder)
 
     # Name of the layer for which the gradient stats will be plotted
-    model_name = "UNet_NL_BCE"
+    model_name = "UNet_NL_Tvserky_ST1"
     layer_name = 'downs.3.conv.4.weight'
     #
     # model_name = "B2_All_BCE"
