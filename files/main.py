@@ -383,7 +383,7 @@ def main(model_arch):
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
 
     # ToDo: delete this
-    model_arch = "B0"
+    model_arch = "B3"
 
     ############################
     # Visualize sample images
