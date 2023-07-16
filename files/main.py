@@ -43,11 +43,11 @@ def main(model_arch):
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 1e-4 # (0.0001)
+    LEARNING_RATE = 2e-5 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
-    NUM_EPOCHS = 400
+    NUM_EPOCHS = 200
     if DEVICE == "cuda":
         NUM_WORKERS = 4
     else:
@@ -400,7 +400,7 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment7"
+    model_dir = "Experiment8"
     model_name = model_arch + "_" + "ST_pretrained"
 
     # create a GradScaler once at the beginning of training.
