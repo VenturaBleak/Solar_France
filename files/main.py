@@ -43,7 +43,7 @@ def main(model_arch):
     # Hyperparameters
     ############################
     RANDOM_SEED = 42
-    LEARNING_RATE = 2e-5 # (0.0001)
+    LEARNING_RATE = 1e-4 # (0.0001)
     scheduler_name = "PolynomialLRDecay"
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     BATCH_SIZE = 16
@@ -94,13 +94,13 @@ def main(model_arch):
     train_folder = 'data_train'
     train_ds = [
     # [dataset_name, fraction_of_positivies, fraction_of_negatives]
-        ['France_google', 0, 0],
-        ['France_ign', 0, 0],
-        ['Munich', 0, 0],
-        ['China', 0, 0],
-        ['Denmark', 0, 0],
-        ['Heerlen_2018_HR_output', 1, 0],
-        ['ZL_2018_HR_output', 1, 0],
+        ['France_google', 1, 0],
+        ['France_ign', 1, 0],
+        ['Munich', 1, 0],
+        ['China', 1, 0],
+        ['Denmark', 1, 0],
+        ['Heerlen_2018_HR_output', 0, 0],
+        ['ZL_2018_HR_output', 0, 0],
     ]
 
     image_dirs, mask_dirs, fractions = get_dirs_and_fractions(train_ds, parent_dir, train_folder)
@@ -365,10 +365,6 @@ def main(model_arch):
     ############################
     model_dir = "_Initialized"
 
-    # ToDo: delete this
-    model_dir = "Experiment6"
-    model_arch = "B3_ST_200"
-
     try:
         # load the model
         load_model(model_dir, model_arch, model, parent_dir)
@@ -381,9 +377,6 @@ def main(model_arch):
             "optimizer": optimizer.state_dict(),
         }
         model_path = save_checkpoint(checkpoint, model_dir=model_dir, model_name=model_arch, parent_dir=parent_dir)
-
-    # ToDo: delete this
-    model_arch = "B2"
 
     ############################
     # Visualize sample images
@@ -504,6 +497,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B1"]
+    model_archs = ["B0"]
     for model_arch in model_archs:
         main(model_arch)
