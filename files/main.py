@@ -400,7 +400,7 @@ def main(model_arch):
     ############################
 
     # retrieve model name for saving
-    model_dir = "Experiment8"
+    model_dir = "Experiment9"
     model_name = model_arch + "_" + "ST_pretrained"
 
     # create a GradScaler once at the beginning of training.
@@ -504,6 +504,6 @@ def main(model_arch):
 
 if __name__ == "__main__":
     # loop over main for the following parameters
-    model_archs = ["B3"]
+    model_archs = ["B1"]
     for model_arch in model_archs:
         main(model_arch)
