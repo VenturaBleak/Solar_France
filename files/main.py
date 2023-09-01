@@ -1,3 +1,48 @@
+"""
+Binary Image Segmentation Training Script.
+
+This script provides utilities for training models, especially UNet, for a binary 
+classification or segmentation task using PyTorch. It includes functionalities 
+for loading images, splitting datasets, setting up transformations, visualizing 
+sample images, setting up training configurations, and performing the training loop 
+with checkpointing and metrics logging.
+
+Modules and Classes:
+    - DataLoader: Used for loading images and annotations in batches.
+    - torchvision.transforms: Provides common image transformations.
+    - torch.cuda.amp: Automatic Mixed Precision to speed up training.
+    - BinaryMetrics: Custom class to compute binary classification metrics.
+
+Functions:
+    - load_data: Load images and annotations.
+    - split_data: Split data into training, validation, and visualization sets.
+    - visualize_sample_images: Display some training images.
+    - train_fn: Train the model for one epoch.
+    - update_log_df: Update the metrics logging dataframe.
+    - save_checkpoint: Save model's state for later use or inference.
+    - save_predictions_as_imgs: Save model predictions as images for visual inspection.
+    - visualize_feature_maps: Visualize the feature maps if using UNet.
+    - visualize_gradcam_UNET: Apply Grad-CAM visualization for UNet.
+
+Attributes:
+    - BATCH_SIZE (int): Size of the batch for the DataLoader.
+    - LEARNING_RATE (float): Learning rate for the optimizer.
+    - IMAGE_HEIGHT, IMAGE_WIDTH (int): Dimensions to resize input images.
+    - NUM_WORKERS (int): Number of workers for DataLoader.
+    - NUM_EPOCHS (int): Total number of epochs for training.
+    - DEVICE (str): Computation device, 'cuda' or 'cpu'.
+    - PIN_MEMORY (bool): If True, the data loader will copy tensors into CUDA pinned memory.
+    - MODEL_NAME (str): Name of the model for saving checkpoints.
+
+Usage:
+    python training_script.py
+
+Note:
+    Before running the script, ensure you have all the dependencies,
+    especially custom modules like BinaryMetrics, installed or available 
+    in the script's directory.
+"""
+
 # libraries
 import os
 import random
