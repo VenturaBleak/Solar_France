@@ -2,8 +2,6 @@
 
 Welcome to the repository dedicated to my master's thesis, "Exploring the Effectiveness of Transfer Learning through Data Combination and Augmentation in Solar Panel Detection Using Remote Sensing Imagery".
 
-!sdasd
-
 ## Introduction
 
 This research unravels the intricacies and efficiencies of diverse training strategies in the field of remote sensing, with a prime focus on Transfer Learning (TL). In an era where the sustainable energy sector is surging ahead, accurate and efficient detection of solar installations becomes pivotal. Harnessing aerial imagery to detect these installations introduces a plethora of challenges, predominantly stemming from the variability in image data across geographies.
