@@ -2,6 +2,7 @@
 
 Welcome to the repository dedicated to my master's thesis, "Exploring the Effectiveness of Transfer Learning through Data Combination and Augmentation in Solar Panel Detection Using Remote Sensing Imagery".
 
+!sdasd
 
 ## Introduction
 
