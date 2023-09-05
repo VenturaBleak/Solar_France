@@ -2,6 +2,8 @@
 
 Welcome to the repository dedicated to my master's thesis, "Exploring the Effectiveness of Transfer Learning through Data Combination and Augmentation in Solar Panel Detection Using Remote Sensing Imagery".
 
+https://github.com/VenturaHaze/Solar_France/blob/b10afc533674a4496456138f3c04eb34fa8ca861/UNet_pretrained100_Epoch10_pred1.png
+
 ## Introduction
 
 This research unravels the intricacies and efficiencies of diverse training strategies in the field of remote sensing, with a prime focus on Transfer Learning (TL). In an era where the sustainable energy sector is surging ahead, accurate and efficient detection of solar installations becomes pivotal. Harnessing aerial imagery to detect these installations introduces a plethora of challenges, predominantly stemming from the variability in image data across geographies.
