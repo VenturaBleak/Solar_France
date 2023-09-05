@@ -17,25 +17,14 @@ Central to this research is the DeepStat WP5 Solar Panel Dataset by CBS, a rich 
 Annotations play a pivotal role, particularly when the goal is semantic segmentation. The dataset from CBS was meticulously augmented with annotations crafted by a team of dedicated volunteers. This herculean annotation effort added another dimension to the dataset, laying the foundation for more nuanced research on solar panel detection.
 
 Data processing and transformation, both pre and post, form a crucial segment of the workflow. It begins with careful data retrieval, ensuring a constant ground sampling distance, and proceeds to augment the dataset with varied transformations. These transformations, from random crops to color adjustments, aim to strengthen the model's robustness across varied data conditions.
-Repository Structure
-
-Navigate through the comprehensive codebase and utilities located under the Files directory:
-
-    Files/Data Transformations: Dive into the scripts and logic for the myriad image transformations.
-
-    Files/Training: Explore configuration files and delve into the training setups.
-
-    Files/Results: A treasure trove of metrics, visualization tools, and insights from the trained models.
-
-    Files/Utilities: A collection of versatile scripts and utilities employed throughout the research journey.
 
 ## Key Findings
 
-    Data Diversity: Harnessing geographically diverse datasets significantly bolsters model generalization.
+Data Diversity: Harnessing geographically diverse datasets significantly bolsters model generalization.
 
-    Sequential Training (ST): The ST paradigm emerges as an impactful methodology for solar panel segmentation.
+Sequential Training (ST): The ST paradigm emerges as an impactful methodology for solar panel segmentation.
 
-    Data Augmentation with "Solar Snippet": The introduction of this technique... (Continue elaborating.)
+Data Augmentation with "Solar Snippet": The introduction of this technique... (Continue elaborating.)
 
 ## Acknowledgements
 
