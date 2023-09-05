@@ -2,7 +2,7 @@
 
 Welcome to the repository dedicated to my master's thesis, "Exploring the Effectiveness of Transfer Learning through Data Combination and Augmentation in Solar Panel Detection Using Remote Sensing Imagery".
 
- !https://github.com/VenturaHaze/Solar_France/blob/b10afc533674a4496456138f3c04eb34fa8ca861/UNet_pretrained100_Epoch10_pred1.png
+ !(https://github.com/VenturaHaze/Solar_France/blob/b10afc533674a4496456138f3c04eb34fa8ca861/UNet_pretrained100_Epoch10_pred1.png)
 
 
 ## Introduction
